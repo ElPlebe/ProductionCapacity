@@ -1,0 +1,30 @@
+@using System.Globalization
+
+<input class="@CssClass" type="number" step="0.001" value="@FormattedValue" @onchange="HandleChange" />
+
+@code {
+    [Parameter] public decimal? Value { get; set; }
+    [Parameter] public EventCallback<decimal?> ValueChanged { get; set; }
+    [Parameter] public string CssClass { get; set; } = "form-control";
+    [Parameter] public bool AllowNull { get; set; }
+
+    private string FormattedValue => Value.HasValue
+        ? DecimalRounding.RoundUp(Value.Value).ToString("0.000", CultureInfo.InvariantCulture)
+        : string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs args)
+    {
+        var text = Convert.ToString(args.Value, CultureInfo.InvariantCulture);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await ValueChanged.InvokeAsync(AllowNull ? null : 0m);
+            return;
+        }
+
+        if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var invariantValue) ||
+            decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out invariantValue))
+        {
+            await ValueChanged.InvokeAsync(invariantValue);
+        }
+    }
+}

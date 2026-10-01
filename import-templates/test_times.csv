@@ -1,0 +1,2 @@
+PartNumber,ProductFamily,OperationCode,TestName,TestTimeMinutes,HandlingMinutes,QuantityCell,QuantityEquipment,ManualStandardTimeSeconds
+,Longball,TEST,Prueba funcional,10,1,1,1,

@@ -1,0 +1,2 @@
+ProductFamily,OperationCode,UnitsPerHour,ChangeoverCount,SourcePartNumber,BottleneckUnitsPerHour,RouterUnitsPerHour,WaveUnitsPerHour,PressfitUnitsPerHour
+AZTECA,SMT,2.176590656,4,,2.176590656,38.084415584,17,3.636363636

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Capacity SMT review</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f5f4; color: #102b24; }
+    header { padding: 12px 16px; background: #123b32; color: white; }
+    main { padding: 16px; display: grid; gap: 12px; }
+    video { width: min(1200px, 100%); background: #111; border: 1px solid #ccd4d0; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { padding: 8px 10px; border: 1px solid #9aaba5; background: white; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #eaf1ee; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Capacity SMT review</strong>
+  </header>
+  <main>
+    <video id="video" controls preload="metadata" src="file:///C:/Users/carl0/Videos/capacity%20smt.mp4"></video>
+    <div class="controls">
+      <button onclick="seek(0)">0s</button>
+      <button onclick="seek(5)">5s</button>
+      <button onclick="seek(10)">10s</button>
+      <button onclick="seek(15)">15s</button>
+      <button onclick="seek(20)">20s</button>
+      <button onclick="seek(25)">25s</button>
+      <button onclick="seek(30)">30s</button>
+      <button onclick="seek(35)">35s</button>
+      <button onclick="seek(40)">40s</button>
+      <button onclick="seek(45)">45s</button>
+      <button onclick="seek(50)">50s</button>
+      <button onclick="seek(55)">55s</button>
+    </div>
+  </main>
+  <script>
+    function seek(seconds) {
+      const video = document.getElementById('video');
+      video.currentTime = seconds;
+      video.pause();
+    }
+  </script>
+</body>
+</html>

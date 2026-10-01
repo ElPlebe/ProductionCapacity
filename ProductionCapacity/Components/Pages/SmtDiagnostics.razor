@@ -1,0 +1,144 @@
+@page "/diagnostico-smt"
+@rendermode InteractiveServer
+@inject SmtDiagnosticsService DiagnosticsService
+
+<PageTitle>Diagnostico SMT</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">SMT</p>
+            <h1>Diagnostico SMT</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Escenario</span>
+            <strong>@ScenarioName</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <div class="alert alert-danger" role="alert">@LoadError</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="panel">Cargando diagnostico SMT...</div>
+    }
+    else if (Snapshot is null)
+    {
+        <div class="alert alert-danger">No pude cargar el diagnostico SMT.</div>
+    }
+    else
+    {
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Semaforo SMT</h2>
+                <span>@Snapshot.CriticalCount.ToString("N0") criticos · @Snapshot.WarningCount.ToString("N0") advertencias</span>
+            </div>
+            <div class="summary-grid operation-summary-grid">
+                @foreach (var card in Snapshot.Cards)
+                {
+                    <div class="metric-card @GetCardClass(card.Status)">
+                        <span>@card.Title</span>
+                        <strong>@FormatStatus(card.Status)</strong>
+                        <small>@card.Summary</small>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Acciones necesarias</h2>
+                <span>@Snapshot.Issues.Count.ToString("N0") hallazgos</span>
+            </div>
+            @if (Snapshot.Issues.Count == 0)
+            {
+                <div class="alert alert-success">No hay bloqueos detectados para SMT en este escenario.</div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="planner-table result-table">
+                        <thead>
+                            <tr>
+                                <th>Severidad</th>
+                                <th>Categoria</th>
+                                <th>Elemento</th>
+                                <th>Mensaje</th>
+                                <th>Accion recomendada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var issue in Snapshot.Issues)
+                            {
+                                <tr class="@GetIssueClass(issue.Severity)">
+                                    <td>@FormatSeverity(issue.Severity)</td>
+                                    <td>@issue.Category</td>
+                                    <td>@issue.EntityKey</td>
+                                    <td>@issue.Message</td>
+                                    <td>@issue.RecommendedAction</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private string ScenarioName { get; set; } = "Base FMD SMT";
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
+    private SmtDiagnosticsSnapshot? Snapshot { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Snapshot = await DiagnosticsService.GetSnapshotAsync(ScenarioName);
+        }
+        catch (Exception ex)
+        {
+            LoadError = $"No pude cargar el diagnostico SMT. Verifica que ya exista el escenario base y los scripts SMT: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string GetCardClass(SmtDiagnosticStatus status) =>
+        status switch
+        {
+            SmtDiagnosticStatus.Critical => "danger",
+            SmtDiagnosticStatus.Warning => "warning",
+            _ => string.Empty
+        };
+
+    private static string GetIssueClass(SmtDiagnosticSeverity severity) =>
+        severity switch
+        {
+            SmtDiagnosticSeverity.Critical => "is-overloaded",
+            SmtDiagnosticSeverity.Warning => "is-tight",
+            _ => string.Empty
+        };
+
+    private static string FormatStatus(SmtDiagnosticStatus status) =>
+        status switch
+        {
+            SmtDiagnosticStatus.Critical => "Critico",
+            SmtDiagnosticStatus.Warning => "Revision",
+            _ => "OK"
+        };
+
+    private static string FormatSeverity(SmtDiagnosticSeverity severity) =>
+        severity switch
+        {
+            SmtDiagnosticSeverity.Critical => "Critico",
+            SmtDiagnosticSeverity.Warning => "Advertencia",
+            _ => "Info"
+        };
+}

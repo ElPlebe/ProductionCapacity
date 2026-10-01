@@ -1,0 +1,977 @@
+@page "/capacidad-smt"
+@rendermode InteractiveServer
+@inject SmtCapacityReportService ReportService
+@inject SmtCapacityParityService ParityService
+
+<PageTitle>Capacidad SMT</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">Capacity SMT</p>
+            <h1>Capacidad por linea SMT</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Escenario</span>
+            <strong>@ScenarioName</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <div class="alert alert-danger" role="alert">@LoadError</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="panel">Cargando capacidad SMT...</div>
+    }
+    else if (Report is null || Report.Rows.Count == 0)
+    {
+        <div class="panel">No hay asignaciones SMT cargadas para este escenario.</div>
+    }
+    else
+    {
+        <div class="summary-grid operation-summary-grid">
+            <div class="metric-card">
+                <span>Lineas SMT</span>
+                <strong>@Report.LineBlocks.Count.ToString("N0")</strong>
+                <small>con asignacion cargada</small>
+            </div>
+            <div class="metric-card">
+                <span>Familias</span>
+                <strong>@Report.Rows.Select(item => item.ProductFamily).Distinct().Count().ToString("N0")</strong>
+                <small>en el reporte</small>
+            </div>
+            <div class="metric-card">
+                <span>Demanda asignada</span>
+                <strong>@DecimalRounding.FormatUp(Report.Rows.Sum(item => item.AssignedDemandUnits))</strong>
+                <small>unidades en semanas cargadas</small>
+            </div>
+            <div class="metric-card warning">
+                <span>Lineas 85.5% a 99.4%</span>
+                <strong>@Report.LineSummaries.Count(item => item.UtilizationPercent >= 85.5m && item.UtilizationPercent <= 99.4m).ToString("N0")</strong>
+                <small>requieren revision</small>
+            </div>
+            <div class="metric-card danger">
+                <span>Lineas arriba de 99.4%</span>
+                <strong>@Report.LineSummaries.Count(item => item.UtilizationPercent > 99.4m).ToString("N0")</strong>
+                <small>sobrecarga</small>
+            </div>
+            <div class="metric-card">
+                <span>Cuello de botella</span>
+                <strong>@GetBottleneckLine()</strong>
+                <small>@GetBottleneckUtilization()</small>
+            </div>
+        </div>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Vista PCBA/SMT por linea</h2>
+                <span>@SummaryVisibleFamilyCount.ToString("N0") familias · @Report.WeekColumns.Count semana(s)</span>
+            </div>
+            <div class="table-toolbar">
+                <span>Volumen = MPS</span>
+                <span>Cap = capacidad calculada</span>
+                <span>Utilizacion = carga contra capacidad</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(EditStatusMessage))
+            {
+                <div class="alert @EditStatusClass">@EditStatusMessage</div>
+            }
+            @if (AssignmentEdit is not null)
+            {
+                <div class="panel soft-panel">
+                    <div class="panel-title">
+                        <h3>Editar asignacion</h3>
+                        <span>@AssignmentEdit.ProductFamily · @AssignmentEdit.WeekName</span>
+                    </div>
+                    <EditForm Model="AssignmentEdit" OnValidSubmit="SaveAssignmentEditAsync">
+                        <div class="catalog-form">
+                            <label><span>Familia</span><InputText class="form-control" @bind-Value="AssignmentEdit.ProductFamily" disabled /></label>
+                            <label>
+                                <span>Mes/Semana</span>
+                                <InputSelect class="form-control" @bind-Value="AssignmentEdit.WeekName">
+                                    @foreach (var weekName in AssignmentEdit.WeekOptions)
+                                    {
+                                        <option value="@weekName">@weekName</option>
+                                    }
+                                </InputSelect>
+                            </label>
+                            <label><span>Linea actual</span><InputText class="form-control" @bind-Value="AssignmentEdit.CurrentLineCode" disabled /></label>
+                            <label>
+                                <span>Nueva linea</span>
+                                <InputSelect class="form-control" @bind-Value="AssignmentEdit.NewLineCode">
+                                    @foreach (var line in LineOptions)
+                                    {
+                                        <option value="@line">@line</option>
+                                    }
+                                </InputSelect>
+                            </label>
+                            <label><span>Factor distribucion %</span><DecimalInput Value="AssignmentEdit.LineDistributionPercent" ValueChanged="value => AssignmentEdit.LineDistributionPercent = value ?? 0m" /></label>
+                            <div class="impact-preview">
+                                <span>Impacto estimado</span>
+                                @foreach (var item in GetAssignmentImpact())
+                                {
+                                    <strong class="@GetLoadClass(item.AfterPercent)">@item.LineCode: @FormatSmtUtilization(item.BeforePercent) -> @FormatSmtUtilization(item.AfterPercent)</strong>
+                                }
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" type="submit">Guardar</button>
+                                <button class="btn btn-secondary" type="button" @onclick="CancelAssignmentEdit">Cancelar</button>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+            <div class="excel-board">
+                @if (SummaryLineBlocks.Count == 0)
+                {
+                    <div class="alert alert-warning">No hay familias SMT que coincidan con los filtros aplicados.</div>
+                }
+                @foreach (var block in SummaryLineBlocks)
+                {
+                    <article class="line-block">
+                        <div class="line-block-header">
+                            <div>
+                                <span>Linea</span>
+                                <strong>@block.LineCode</strong>
+                            </div>
+                            <div class="line-block-summary">
+                                <span>Familias @block.FamilyRows.Count.ToString("N0")</span>
+                                <span>Max @GetLinePeakUtilization(block)</span>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="planner-table excel-smt-table result-table">
+                                <thead>
+                                    <tr>
+                                        <th>Acciones</th>
+                                        <th class="sticky-col"><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.BusinessUnit)"><span>BU</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.BusinessUnit)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.ProductFamily)"><span>Familia</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.ProductFamily)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.SubFamily)"><span>Subfamilia</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.SubFamily)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.LineDistribution)"><span>Distrib.</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.LineDistribution)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.UnitsPerHour)"><span>SMT UPH</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.UnitsPerHour)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.ChangeoverCount)"><span>CO mes</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.ChangeoverCount)</span></button></th>
+                                        <th><button type="button" class="table-sort-button" @onclick="() => ToggleSummarySort(SmtCapacityFamilyLineSortColumn.ChangeoverHoursMonth)"><span>CO hrs</span><span class="sort-indicator">@SummarySortIndicator(SmtCapacityFamilyLineSortColumn.ChangeoverHoursMonth)</span></button></th>
+                                        @foreach (var week in Report.WeekColumns)
+                                        {
+                                            <th>
+                                                <button type="button" class="table-sort-button week-sort-button" @onclick="() => ToggleSummaryWeekSort(week.WeekName)">
+                                                    <span class="week-month">@(week.MonthName ?? "-")</span>
+                                                    <strong>@week.WeekName<span class="sort-indicator">@SummaryWeekSortIndicator(week.WeekName)</span></strong>
+                                                    <small>@week.WeekCount semanas</small>
+                                                </button>
+                                            </th>
+                                        }
+                                    </tr>
+                                    <tr class="filter-row">
+                                        <th></th>
+                                        <th class="sticky-col"><input class="table-filter-input" placeholder="Filtrar" @bind="SummaryBusinessUnitFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input" placeholder="Filtrar" @bind="SummaryFamilyFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input" placeholder="Filtrar" @bind="SummarySubFamilyFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input number-filter" placeholder="%" @bind="SummaryLineDistributionFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input number-filter" placeholder="#" @bind="SummaryUnitsPerHourFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input number-filter" placeholder="#" @bind="SummaryChangeoverCountFilter" @bind:event="oninput" /></th>
+                                        <th><input class="table-filter-input number-filter" placeholder="#" @bind="SummaryChangeoverHoursFilter" @bind:event="oninput" /></th>
+                                        @foreach (var week in Report.WeekColumns)
+                                        {
+                                            <th></th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="line-total-row @GetLineSummaryClass(block)">
+                                        <td></td>
+                                        <td class="sticky-col"><strong>Total @block.LineCode</strong></td>
+                                        <td colspan="6">Utilizacion por semana</td>
+                                        @foreach (var week in Report.WeekColumns)
+                                        {
+                                            <td class="number-cell">
+                                                @if (block.WeeklySummaries.TryGetValue(week.WeekName, out var summary))
+                                                {
+                                                    <strong>@FormatSmtUtilization(summary.UtilizationPercent)</strong>
+                                                    <small>Cap @FormatSmtCapacity(summary.MaxCapacityUnits)</small>
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted-cell">-</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                    @foreach (var row in block.FamilyRows)
+                                    {
+                                        <tr>
+                                            <td><button class="link-button" type="button" @onclick="() => StartSummaryAssignmentEdit(row)">Editar</button></td>
+                                            <td class="sticky-col">@(row.BusinessUnit ?? "-")</td>
+                                            <td>@row.ProductFamily</td>
+                                            <td>@(row.SubFamily ?? "-")</td>
+                                            <td class="number-cell">@FormatLineDistribution(row.LineDistribution)</td>
+                                            <td class="number-cell">@FormatSmtUph(row.UnitsPerHour)</td>
+                                            <td class="number-cell">@FormatSmtWhole(row.ChangeoverCount)</td>
+                                            <td class="number-cell">@FormatSmtWhole(row.ChangeoverHoursMonth)</td>
+                                            @foreach (var week in Report.WeekColumns)
+                                            {
+                                                if (row.WeekCells.TryGetValue(week.WeekName, out var cell))
+                                                {
+                                                    <td class="number-cell week-cell @GetLoadClass(cell.UtilizationPercent)">
+                                                        <strong>@FormatSmtUtilization(cell.UtilizationPercent)</strong>
+                                                        <small>MPS @DecimalRounding.FormatUp(cell.AssignedDemandUnits)</small>
+                                                        <small>Delta @DecimalRounding.FormatUp(cell.DeltaCapacityUnits)</small>
+                                                    </td>
+                                                }
+                                                else
+                                                {
+                                                    <td class="number-cell"><span class="muted-cell">-</span></td>
+                                                }
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Detalle familia-linea</h2>
+                <span>@DetailRows.Count.ToString("N0") de @Report.Rows.Count.ToString("N0") registros</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table result-table">
+                    <thead>
+                        <tr>
+                            <th>Acciones</th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.WeekName)"><span>Semana</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.WeekName)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.MonthName)"><span>Mes</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.MonthName)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.LineCode)"><span>Linea</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.LineCode)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.BusinessUnit)"><span>BU</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.BusinessUnit)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.ProductFamily)"><span>Familia</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.ProductFamily)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.SubFamily)"><span>Subfamilia</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.SubFamily)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.LineDistribution)"><span>Distribucion</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.LineDistribution)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.WeeklyDemandUnits)"><span>MPS semanal</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.WeeklyDemandUnits)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.MonthlyMps)"><span>MPS mensual</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.MonthlyMps)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.AssignedDemandUnits)"><span>Asignado</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.AssignedDemandUnits)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.UnitsPerHour)"><span>SMT UPH</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.UnitsPerHour)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.ChangeoverCount)"><span>CO mes</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.ChangeoverCount)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.ChangeoverHoursMonth)"><span>CO hrs mes</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.ChangeoverHoursMonth)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.AvailableHours)"><span>Disponible</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.AvailableHours)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.MaxCapacityUnits)"><span>Capacidad max</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.MaxCapacityUnits)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.UtilizationPercent)"><span>Utilizacion</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.UtilizationPercent)</span></button></th>
+                            <th><button type="button" class="table-sort-button" @onclick="() => ToggleDetailSort(SmtCapacitySortColumn.DeltaCapacityUnits)"><span>Delta</span><span class="sort-indicator">@SortIndicator(SmtCapacitySortColumn.DeltaCapacityUnits)</span></button></th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailWeekFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailMonthFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailLineFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailBusinessUnitFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailFamilyFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input" placeholder="Filtrar" @bind="DetailSubFamilyFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="%" @bind="DetailLineDistributionFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailWeeklyDemandFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailMonthlyMpsFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailAssignedDemandFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailUnitsPerHourFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailChangeoverCountFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailChangeoverHoursFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="h" @bind="DetailAvailableHoursFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailMaxCapacityFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="%" @bind="DetailUtilizationFilter" @bind:event="oninput" /></th>
+                            <th><input class="table-filter-input number-filter" placeholder="#" @bind="DetailDeltaFilter" @bind:event="oninput" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in DetailRows)
+                        {
+                            <tr class="@GetLoadClass(row.UtilizationPercent)">
+                                <td><button class="link-button" type="button" @onclick="() => StartAssignmentEdit(row)">Editar</button></td>
+                                <td>@row.WeekName</td>
+                                <td>@(row.MonthName ?? "-")</td>
+                                <td>@row.LineCode</td>
+                                <td>@(row.BusinessUnit ?? "-")</td>
+                                <td>@row.ProductFamily</td>
+                                <td>@(row.SubFamily ?? "-")</td>
+                                <td class="number-cell">@FormatLineDistribution(row.LineDistribution)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.WeeklyDemandUnits)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.MonthlyMps)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.AssignedDemandUnits)</td>
+                                <td class="number-cell">@FormatSmtUph(row.UnitsPerHour)</td>
+                                <td class="number-cell">@FormatSmtWhole(row.ChangeoverCount)</td>
+                                <td class="number-cell">@FormatSmtWhole(row.ChangeoverHoursMonth)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.AvailableHours, " h")</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.MaxCapacityUnits)</td>
+                                <td class="number-cell">@FormatSmtUtilization(row.UtilizationPercent)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.DeltaCapacityUnits)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Fuente de volumen (MPS)</h2>
+                <span>@VolumeRows.Count.ToString("N0") familias</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table result-table">
+                    <thead>
+                        <tr>
+                            <th>BU</th>
+                            <th>Subfamilia</th>
+                            <th>Familia</th>
+                            @foreach (var week in Report.WeekColumns)
+                            {
+                                <th>@week.WeekName</th>
+                            }
+                            <th>MPS total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in VolumeRows)
+                        {
+                            <tr>
+                                <td>@(row.BusinessUnit ?? "-")</td>
+                                <td>@(row.SubFamily ?? "-")</td>
+                                <td>@row.ProductFamily</td>
+                                @foreach (var week in Report.WeekColumns)
+                                {
+                                    <td class="number-cell">@DecimalRounding.FormatUp(row.MonthlyMpsByWeek.GetValueOrDefault(week.WeekName))</td>
+                                }
+                                <td class="number-cell"><strong>@DecimalRounding.FormatUp(row.TotalMonthlyMps)</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Comparacion Capacity SMT</h2>
+                <span>@GetParityStatus()</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(ParityError))
+            {
+                <div class="alert alert-warning">@ParityError</div>
+            }
+            else if (Parity is null)
+            {
+                <p class="muted-cell">No se ha ejecutado comparacion contra targets de Excel.</p>
+            }
+            else
+            {
+                <div class="summary-grid operation-summary-grid">
+                    <div class="metric-card">
+                        <span>Targets Excel</span>
+                        <strong>@Parity.TargetCount.ToString("N0")</strong>
+                        <small>filas esperadas cargadas</small>
+                    </div>
+                    <div class="metric-card @(Parity.DifferenceCount > 0 ? "warning" : string.Empty)">
+                        <span>Diferencias</span>
+                        <strong>@Parity.DifferenceCount.ToString("N0")</strong>
+                        <small>tolerancia @DecimalRounding.FormatUp(Parity.Tolerance)</small>
+                    </div>
+                    <div class="metric-card">
+                        <span>Estado</span>
+                        <strong>@(Parity.IsPassing ? "OK" : "Revision")</strong>
+                        <small>contra Capacity SMT</small>
+                    </div>
+                </div>
+                @if (Parity.TargetCount == 0)
+                {
+                    <div class="alert alert-warning">
+                        No hay targets de Excel SMT cargados. Importa el archivo FMD con la hoja Capacity SMT para poder validar 1:1 contra Excel.
+                    </div>
+                }
+                <div class="table-toolbar">
+                    <label class="table-toggle">
+                        <input type="checkbox" @bind="ParityOnlyDifferences" />
+                        <span>Solo diferencias</span>
+                    </label>
+                    <span>@ParityRows.Count.ToString("N0") registros visibles</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="planner-table result-table">
+                        <thead>
+                            <tr>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.WeekName)"><span>Semana</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.WeekName)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.OperationCode)"><span>Operacion</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.OperationCode)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.LineCode)"><span>Linea</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.LineCode)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ProductFamily)"><span>Familia</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ProductFamily)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ExpectedAssignedDemandUnits)"><span>Asignado Excel</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ExpectedAssignedDemandUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ActualAssignedDemandUnits)"><span>Asignado sistema</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ActualAssignedDemandUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ExpectedMaxCapacityUnits)"><span>Cap Excel</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ExpectedMaxCapacityUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ActualMaxCapacityUnits)"><span>Cap sistema</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ActualMaxCapacityUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ExpectedUtilizationPercent)"><span>Util Excel</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ExpectedUtilizationPercent)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ActualUtilizationPercent)"><span>Util sistema</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ActualUtilizationPercent)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ExpectedDeltaCapacityUnits)"><span>Delta Excel</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ExpectedDeltaCapacityUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.ActualDeltaCapacityUnits)"><span>Delta sistema</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.ActualDeltaCapacityUnits)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.SourceReference)"><span>Fuente</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.SourceReference)</span></button></th>
+                                <th><button type="button" class="table-sort-button" @onclick="() => ToggleParitySort(SmtCapacityParitySortColumn.Status)"><span>Estado</span><span class="sort-indicator">@ParitySortIndicator(SmtCapacityParitySortColumn.Status)</span></button></th>
+                            </tr>
+                            <tr class="filter-row">
+                                <th><input class="table-filter-input" placeholder="Filtrar" @bind="ParityWeekFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input" placeholder="Filtrar" @bind="ParityOperationFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input" placeholder="Filtrar" @bind="ParityLineFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input" placeholder="Filtrar" @bind="ParityFamilyFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityExpectedAssignedFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityActualAssignedFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityExpectedCapacityFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityActualCapacityFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="%" @bind="ParityExpectedUtilizationFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="%" @bind="ParityActualUtilizationFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityExpectedDeltaFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input number-filter" placeholder="#" @bind="ParityActualDeltaFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input" placeholder="Hoja/celda" @bind="ParitySourceFilter" @bind:event="oninput" /></th>
+                                <th><input class="table-filter-input" placeholder="OK/dif." @bind="ParityStatusFilter" @bind:event="oninput" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (ParityRows.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="14" class="muted-cell">No hay filas que coincidan con los filtros del comparativo.</td>
+                                </tr>
+                            }
+                            @foreach (var row in ParityRows)
+                            {
+                                <tr class="@(row.IsPassing ? string.Empty : "is-tight")">
+                                    <td>@row.WeekName</td>
+                                    <td>@row.OperationCode</td>
+                                    <td>@row.LineCode</td>
+                                    <td>@row.ProductFamily</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ExpectedAssignedDemandUnits)</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualAssignedDemandUnits)</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ExpectedMaxCapacityUnits)</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualMaxCapacityUnits)</td>
+                                    <td class="number-cell">@FormatOptionalSmtUtilization(row.ExpectedUtilizationPercent)</td>
+                                    <td class="number-cell">@FormatOptionalSmtUtilization(row.ActualUtilizationPercent)</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ExpectedDeltaCapacityUnits)</td>
+                                    <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualDeltaCapacityUnits)</td>
+                                    <td>@(row.SourceReference ?? "-")</td>
+                                    <td>@(row.IsPassing ? "OK" : row.Message ?? "Diferencia")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private string ScenarioName { get; set; } = "Base FMD SMT";
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
+    private string? ParityError { get; set; }
+    private string? EditStatusMessage { get; set; }
+    private string EditStatusClass { get; set; } = "alert-success";
+    private SmtCapacityReport? Report { get; set; }
+    private SmtCapacityParityResult? Parity { get; set; }
+    private AssignmentEditForm? AssignmentEdit { get; set; }
+    private string? SummaryFamilyFilter { get; set; }
+    private string? SummarySubFamilyFilter { get; set; }
+    private string? SummaryBusinessUnitFilter { get; set; }
+    private string? SummaryLineDistributionFilter { get; set; }
+    private string? SummaryUnitsPerHourFilter { get; set; }
+    private string? SummaryChangeoverCountFilter { get; set; }
+    private string? SummaryChangeoverHoursFilter { get; set; }
+    private SmtCapacityFamilyLineSortColumn SummarySortColumn { get; set; } = SmtCapacityFamilyLineSortColumn.ProductFamily;
+    private bool SummarySortDescending { get; set; }
+    private string? SummarySortWeekName { get; set; }
+    private string? DetailWeekFilter { get; set; }
+    private string? DetailMonthFilter { get; set; }
+    private string? DetailLineFilter { get; set; }
+    private string? DetailFamilyFilter { get; set; }
+    private string? DetailSubFamilyFilter { get; set; }
+    private string? DetailBusinessUnitFilter { get; set; }
+    private string? DetailLineDistributionFilter { get; set; }
+    private string? DetailWeeklyDemandFilter { get; set; }
+    private string? DetailMonthlyMpsFilter { get; set; }
+    private string? DetailAssignedDemandFilter { get; set; }
+    private string? DetailUnitsPerHourFilter { get; set; }
+    private string? DetailChangeoverCountFilter { get; set; }
+    private string? DetailChangeoverHoursFilter { get; set; }
+    private string? DetailAvailableHoursFilter { get; set; }
+    private string? DetailMaxCapacityFilter { get; set; }
+    private string? DetailUtilizationFilter { get; set; }
+    private string? DetailDeltaFilter { get; set; }
+    private SmtCapacitySortColumn DetailSortColumn { get; set; } = SmtCapacitySortColumn.WeekName;
+    private bool DetailSortDescending { get; set; }
+    private bool ParityOnlyDifferences { get; set; } = true;
+    private string? ParityWeekFilter { get; set; }
+    private string? ParityOperationFilter { get; set; }
+    private string? ParityLineFilter { get; set; }
+    private string? ParityFamilyFilter { get; set; }
+    private string? ParityExpectedAssignedFilter { get; set; }
+    private string? ParityActualAssignedFilter { get; set; }
+    private string? ParityExpectedCapacityFilter { get; set; }
+    private string? ParityActualCapacityFilter { get; set; }
+    private string? ParityExpectedUtilizationFilter { get; set; }
+    private string? ParityActualUtilizationFilter { get; set; }
+    private string? ParityExpectedDeltaFilter { get; set; }
+    private string? ParityActualDeltaFilter { get; set; }
+    private string? ParitySourceFilter { get; set; }
+    private string? ParityStatusFilter { get; set; }
+    private SmtCapacityParitySortColumn ParitySortColumn { get; set; } = SmtCapacityParitySortColumn.WeekName;
+    private bool ParitySortDescending { get; set; }
+
+    private IReadOnlyList<string> LineOptions =>
+        Report?.Rows
+            .Select(row => row.LineCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(line => line, StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+    private IReadOnlyList<SmtCapacityLineBlock> SummaryLineBlocks =>
+        Report is null
+            ? []
+            : Report.LineBlocks
+                .Select(block => block with
+                {
+                    FamilyRows = SmtCapacityTableQuery.ApplyFamilyRows(
+                        block.FamilyRows,
+                        new SmtCapacityFamilyLineTableFilter(
+                            SummaryFamilyFilter,
+                            SummarySubFamilyFilter,
+                            SummaryBusinessUnitFilter,
+                            SummaryLineDistributionFilter,
+                            SummaryUnitsPerHourFilter,
+                            SummaryChangeoverCountFilter,
+                            SummaryChangeoverHoursFilter),
+                        SummarySortColumn,
+                        SummarySortDescending,
+                        SummarySortWeekName)
+                })
+                .Where(block => block.FamilyRows.Count > 0)
+                .ToList();
+
+    private int SummaryVisibleFamilyCount =>
+        SummaryLineBlocks.Sum(block => block.FamilyRows.Count);
+
+    private IReadOnlyList<SmtCapacityReportRow> DetailRows =>
+        Report is null
+            ? []
+            : SmtCapacityTableQuery.Apply(
+                Report.Rows,
+                new SmtCapacityTableFilter(
+                    DetailWeekFilter,
+                    DetailMonthFilter,
+                    DetailLineFilter,
+                    DetailFamilyFilter,
+                    DetailSubFamilyFilter,
+                    DetailBusinessUnitFilter,
+                    DetailLineDistributionFilter,
+                    DetailWeeklyDemandFilter,
+                    DetailMonthlyMpsFilter,
+                    DetailAssignedDemandFilter,
+                    DetailUnitsPerHourFilter,
+                    DetailChangeoverCountFilter,
+                    DetailChangeoverHoursFilter,
+                    DetailAvailableHoursFilter,
+                    DetailMaxCapacityFilter,
+                    DetailUtilizationFilter,
+                    DetailDeltaFilter),
+                DetailSortColumn,
+                DetailSortDescending);
+
+    private IReadOnlyList<VolumeSourceRow> VolumeRows =>
+        Report is null
+            ? []
+            : Report.Rows
+                .GroupBy(row => new { row.BusinessUnit, row.SubFamily, row.ProductFamily })
+                .OrderBy(group => group.Key.BusinessUnit ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(group => group.Key.SubFamily ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(group => group.Key.ProductFamily, StringComparer.OrdinalIgnoreCase)
+                .Select(group =>
+                {
+                    var monthlyMpsByWeek = group
+                        .GroupBy(row => row.WeekName)
+                        .ToDictionary(
+                            weekGroup => weekGroup.Key,
+                            weekGroup => weekGroup.Max(row => row.MonthlyMps));
+
+                    return new VolumeSourceRow(
+                        group.Key.BusinessUnit,
+                        group.Key.SubFamily,
+                        group.Key.ProductFamily,
+                        monthlyMpsByWeek,
+                        monthlyMpsByWeek.Values.Sum());
+                })
+                .ToList();
+
+    private IReadOnlyList<SmtCapacityParityRow> ParityRows =>
+        Parity is null
+            ? []
+            : SmtCapacityParityTableQuery.Apply(
+                Parity.Rows,
+                new SmtCapacityParityTableFilter(
+                    ParityWeekFilter,
+                    ParityOperationFilter,
+                    ParityLineFilter,
+                    ParityFamilyFilter,
+                    ParityExpectedAssignedFilter,
+                    ParityActualAssignedFilter,
+                    ParityExpectedCapacityFilter,
+                    ParityActualCapacityFilter,
+                    ParityExpectedUtilizationFilter,
+                    ParityActualUtilizationFilter,
+                    ParityExpectedDeltaFilter,
+                    ParityActualDeltaFilter,
+                    ParitySourceFilter,
+                    ParityStatusFilter),
+                ParitySortColumn,
+                ParitySortDescending,
+                ParityOnlyDifferences);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportAsync();
+    }
+
+    private async Task LoadReportAsync()
+    {
+        try
+        {
+            LoadError = null;
+            ParityError = null;
+            Report = await ReportService.GetReportAsync(ScenarioName);
+            try
+            {
+                Parity = await ParityService.CompareAsync(ScenarioName);
+            }
+            catch (Exception ex)
+            {
+                ParityError = $"No pude comparar contra targets de Capacity SMT. Aplica el script 006 y carga targets: {ex.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            LoadError = $"No pude cargar la capacidad SMT. Verifica que el script 005 este aplicado y que existan CSV SMT importados: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string GetLoadClass(decimal loadPercent) =>
+        loadPercent > 99.4m ? "is-overloaded" :
+        loadPercent >= 85.5m ? "is-tight" :
+        string.Empty;
+
+    private void StartAssignmentEdit(SmtCapacityReportRow row)
+    {
+        AssignmentEdit = new AssignmentEditForm
+        {
+            WeekName = row.WeekName,
+            WeekOptions = GetWeekOptions(row.ProductFamily, row.LineCode),
+            OperationCode = row.OperationCode,
+            ProductFamily = row.ProductFamily,
+            CurrentLineCode = row.LineCode,
+            NewLineCode = row.LineCode,
+            LineDistributionPercent = row.LineDistribution * 100m
+        };
+        EditStatusMessage = null;
+    }
+
+    private void StartSummaryAssignmentEdit(SmtCapacityFamilyLineRow row)
+    {
+        var weekOptions = GetWeekOptions(row.ProductFamily, row.LineCode);
+        AssignmentEdit = new AssignmentEditForm
+        {
+            WeekName = weekOptions.FirstOrDefault() ?? string.Empty,
+            WeekOptions = weekOptions,
+            OperationCode = row.OperationCode,
+            ProductFamily = row.ProductFamily,
+            CurrentLineCode = row.LineCode,
+            NewLineCode = row.LineCode,
+            LineDistributionPercent = row.LineDistribution * 100m
+        };
+        EditStatusMessage = null;
+    }
+
+    private void CancelAssignmentEdit()
+    {
+        AssignmentEdit = null;
+        EditStatusMessage = null;
+    }
+
+    private async Task SaveAssignmentEditAsync()
+    {
+        if (AssignmentEdit is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ReportService.UpdateLineAssignmentAsync(new SmtCapacityAssignmentEdit(
+                ScenarioName,
+                AssignmentEdit.WeekName,
+                AssignmentEdit.OperationCode,
+                AssignmentEdit.ProductFamily,
+                AssignmentEdit.CurrentLineCode,
+                AssignmentEdit.NewLineCode,
+                AssignmentEdit.LineDistributionPercent));
+            AssignmentEdit = null;
+            EditStatusClass = "alert-success";
+            EditStatusMessage = "Asignacion actualizada. La capacidad SMT fue recalculada.";
+            await LoadReportAsync();
+        }
+        catch (Exception ex)
+        {
+            EditStatusClass = "alert-danger";
+            EditStatusMessage = $"No pude guardar la asignacion: {ex.Message}";
+        }
+    }
+
+    private IReadOnlyList<string> GetWeekOptions(string productFamily, string lineCode)
+    {
+        if (Report is null)
+        {
+            return [];
+        }
+
+        var availableWeeks = Report.Rows
+            .Where(row =>
+                row.ProductFamily.Equals(productFamily, StringComparison.OrdinalIgnoreCase) &&
+                row.LineCode.Equals(lineCode, StringComparison.OrdinalIgnoreCase))
+            .Select(row => row.WeekName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return Report.WeekColumns
+            .Where(week => availableWeeks.Contains(week.WeekName))
+            .Select(week => week.WeekName)
+            .ToList();
+    }
+
+    private IReadOnlyList<AssignmentImpact> GetAssignmentImpact()
+    {
+        if (AssignmentEdit is null || Report is null)
+        {
+            return [];
+        }
+
+        var sourceRow = Report.Rows.FirstOrDefault(row =>
+            row.WeekName.Equals(AssignmentEdit.WeekName, StringComparison.OrdinalIgnoreCase) &&
+            row.ProductFamily.Equals(AssignmentEdit.ProductFamily, StringComparison.OrdinalIgnoreCase) &&
+            row.LineCode.Equals(AssignmentEdit.CurrentLineCode, StringComparison.OrdinalIgnoreCase));
+        if (sourceRow is null)
+        {
+            return [];
+        }
+
+        var sourceSummary = Report.LineSummaries.FirstOrDefault(summary =>
+            summary.WeekName.Equals(AssignmentEdit.WeekName, StringComparison.OrdinalIgnoreCase) &&
+            summary.LineCode.Equals(AssignmentEdit.CurrentLineCode, StringComparison.OrdinalIgnoreCase));
+        var targetSummary = Report.LineSummaries.FirstOrDefault(summary =>
+            summary.WeekName.Equals(AssignmentEdit.WeekName, StringComparison.OrdinalIgnoreCase) &&
+            summary.LineCode.Equals(AssignmentEdit.NewLineCode, StringComparison.OrdinalIgnoreCase));
+
+        var beforeSource = sourceSummary?.UtilizationPercent ?? 0m;
+        var beforeTarget = targetSummary?.UtilizationPercent ?? 0m;
+        var distributionFactor = sourceRow.LineDistribution <= 0m
+            ? 0m
+            : (AssignmentEdit.LineDistributionPercent / 100m) / sourceRow.LineDistribution;
+        var movedUtilization = sourceRow.UtilizationPercent * distributionFactor;
+        var sourceAfter = Math.Max(0m, beforeSource - sourceRow.UtilizationPercent);
+        var targetAfter = AssignmentEdit.CurrentLineCode.Equals(AssignmentEdit.NewLineCode, StringComparison.OrdinalIgnoreCase)
+            ? sourceAfter + movedUtilization
+            : beforeTarget + movedUtilization;
+
+        if (AssignmentEdit.CurrentLineCode.Equals(AssignmentEdit.NewLineCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return [new AssignmentImpact(AssignmentEdit.CurrentLineCode, beforeSource, targetAfter)];
+        }
+
+        return
+        [
+            new AssignmentImpact(AssignmentEdit.CurrentLineCode, beforeSource, sourceAfter),
+            new AssignmentImpact(AssignmentEdit.NewLineCode, beforeTarget, targetAfter)
+        ];
+    }
+
+    private string GetBottleneckLine()
+    {
+        if (Report is null || Report.LineSummaries.Count == 0)
+        {
+            return "-";
+        }
+
+        return Report.LineSummaries
+            .OrderByDescending(item => item.UtilizationPercent)
+            .ThenBy(item => item.LineCode)
+            .First()
+            .LineCode;
+    }
+
+    private string GetBottleneckUtilization()
+    {
+        if (Report is null || Report.LineSummaries.Count == 0)
+        {
+            return "sin datos";
+        }
+
+        var bottleneck = Report.LineSummaries
+            .OrderByDescending(item => item.UtilizationPercent)
+            .ThenBy(item => item.LineCode)
+            .First();
+
+        return $"{bottleneck.WeekName} · {FormatSmtUtilization(bottleneck.UtilizationPercent)}";
+    }
+
+    private static string GetLinePeakUtilization(SmtCapacityLineBlock block)
+    {
+        if (block.WeeklySummaries.Count == 0)
+        {
+            return "-";
+        }
+
+        var peak = block.WeeklySummaries.Values.Max(item => item.UtilizationPercent);
+        return FormatSmtUtilization(peak);
+    }
+
+    private static string GetLineSummaryClass(SmtCapacityLineBlock block)
+    {
+        if (block.WeeklySummaries.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var peak = block.WeeklySummaries.Values.Max(item => item.UtilizationPercent);
+        return GetLoadClass(peak);
+    }
+
+    private string GetParityStatus()
+    {
+        if (!string.IsNullOrWhiteSpace(ParityError))
+        {
+            return "pendiente";
+        }
+
+        if (Parity is null)
+        {
+            return "sin datos";
+        }
+
+        return Parity.IsPassing ? "dentro de tolerancia" : "requiere revision";
+    }
+
+    private void ToggleDetailSort(SmtCapacitySortColumn column)
+    {
+        if (DetailSortColumn == column)
+        {
+            DetailSortDescending = !DetailSortDescending;
+            return;
+        }
+
+        DetailSortColumn = column;
+        DetailSortDescending = false;
+    }
+
+    private string SortIndicator(SmtCapacitySortColumn column) =>
+        DetailSortColumn == column
+            ? DetailSortDescending ? " v" : " ^"
+            : string.Empty;
+
+    private void ToggleParitySort(SmtCapacityParitySortColumn column)
+    {
+        if (ParitySortColumn == column)
+        {
+            ParitySortDescending = !ParitySortDescending;
+            return;
+        }
+
+        ParitySortColumn = column;
+        ParitySortDescending = false;
+    }
+
+    private string ParitySortIndicator(SmtCapacityParitySortColumn column) =>
+        ParitySortColumn == column
+            ? ParitySortDescending ? " v" : " ^"
+            : string.Empty;
+
+    private void ToggleSummarySort(SmtCapacityFamilyLineSortColumn column)
+    {
+        SummarySortWeekName = null;
+        if (SummarySortColumn == column)
+        {
+            SummarySortDescending = !SummarySortDescending;
+            return;
+        }
+
+        SummarySortColumn = column;
+        SummarySortDescending = false;
+    }
+
+    private void ToggleSummaryWeekSort(string weekName)
+    {
+        if (SummarySortColumn == SmtCapacityFamilyLineSortColumn.WeekUtilizationPercent &&
+            SummarySortWeekName == weekName)
+        {
+            SummarySortDescending = !SummarySortDescending;
+            return;
+        }
+
+        SummarySortColumn = SmtCapacityFamilyLineSortColumn.WeekUtilizationPercent;
+        SummarySortWeekName = weekName;
+        SummarySortDescending = true;
+    }
+
+    private string SummarySortIndicator(SmtCapacityFamilyLineSortColumn column) =>
+        SummarySortColumn == column && SummarySortWeekName is null
+            ? SummarySortDescending ? " v" : " ^"
+            : string.Empty;
+
+    private string SummaryWeekSortIndicator(string weekName) =>
+        SummarySortColumn == SmtCapacityFamilyLineSortColumn.WeekUtilizationPercent &&
+            SummarySortWeekName == weekName
+            ? SummarySortDescending ? " v" : " ^"
+            : string.Empty;
+
+    private static string FormatSmtUtilization(decimal value) =>
+        DecimalRounding.FormatNatural(value, "%", decimals: 0);
+
+    private static string FormatOptionalSmtUtilization(decimal? value) =>
+        value.HasValue ? FormatSmtUtilization(value.Value) : "-";
+
+    private static string FormatLineDistribution(decimal value) =>
+        DecimalRounding.FormatPercentNatural(value, decimals: 0);
+
+    private static string FormatSmtUph(decimal value) =>
+        DecimalRounding.FormatNatural(value, decimals: 2);
+
+    private static string FormatSmtWhole(decimal value) =>
+        DecimalRounding.FormatNatural(value, decimals: 0);
+
+    private static string FormatSmtCapacity(decimal value) =>
+        DecimalRounding.FormatUp(value, decimals: 0);
+
+    private sealed class AssignmentEditForm
+    {
+        public string WeekName { get; set; } = string.Empty;
+        public IReadOnlyList<string> WeekOptions { get; set; } = [];
+        public string OperationCode { get; set; } = string.Empty;
+        public string ProductFamily { get; set; } = string.Empty;
+        public string CurrentLineCode { get; set; } = string.Empty;
+        public string NewLineCode { get; set; } = string.Empty;
+        public decimal LineDistributionPercent { get; set; }
+    }
+
+    private sealed record AssignmentImpact(string LineCode, decimal BeforePercent, decimal AfterPercent);
+
+    private sealed record VolumeSourceRow(
+        string? BusinessUnit,
+        string? SubFamily,
+        string ProductFamily,
+        IReadOnlyDictionary<string, decimal> MonthlyMpsByWeek,
+        decimal TotalMonthlyMps);
+}

@@ -1,0 +1,209 @@
+{"kind":"deck","id":"pr/3y1f3g","name":"Deck"}
+{"kind":"layout","layoutId":"c70e5845-05c0-40b5-a8ef-0b178fdfd39c","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"c77b669e-ba71-41d4-9b92-2c6deced2103","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/v2opjs","slide":1,"title":"Capacity Planner SMT","textShapes":6}
+{"kind":"shape","id":"sh/69gj2143","slide":1,"bbox":[760,0,520,720]}
+{"kind":"textbox","id":"sh/tw72dw3e","slide":1,"text":"Capacity Planner SMT","textPreview":"Capacity Planner SMT","textChars":20,"textLines":1,"bbox":[72,94,560,126]}
+{"kind":"textbox","id":"sh/svy14rmt","slide":1,"text":"Del Excel al plan de capacidad por linea","textPreview":"Del Excel al plan de capacidad por linea","textChars":40,"textLines":1,"bbox":[76,238,560,42]}
+{"kind":"textbox","id":"sh/j65k7mlc","slide":1,"text":"Importa datos SMT, calcula capacidad, detecta sobrecarga y ayuda al planeador a decidir donde producir.","textPreview":"Importa datos SMT, calcula capacidad, detecta sobrecarga y ayuda al planeador a decidir donde producir.","textChars":103,"textLines":1,"bbox":[76,328,560,96]}
+{"kind":"shape","id":"sh/i5wjyh4r","slide":1,"bbox":[76,505,470,72]}
+{"kind":"textbox","id":"sh/58729w3i","slide":1,"text":"Audiencia: planeadores, lideres de produccion y equipos que revisan capacidad SMT.","textPreview":"Audiencia: planeadores, lideres de produccion y equipos que revisan capacidad SMT.","textChars":82,"textLines":1,"bbox":[102,524,420,36]}
+{"kind":"textbox","id":"sh/k7e10rmx","slide":1,"text":"Presentacion funcional","textPreview":"Presentacion funcional","textChars":22,"textLines":1,"bbox":[880,116,240,36]}
+{"kind":"textbox","id":"sh/v2503ml0","slide":1,"text":"Que hace\nComo se usa\nDonde revisar\nCuando ajustar","textPreview":"Que hace | Como se usa | Donde revisar | Cuando ajustar","textChars":49,"textLines":4,"bbox":[858,210,300,210]}
+{"kind":"notes","id":"nt/v2opjs","slide":1,"text":""}
+{"kind":"slide","id":"sl/y7ggmj","slide":2,"title":"CAPACITY PLANNER SMT","textShapes":13}
+{"kind":"textbox","id":"sh/xk76d0va","slide":2,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/ahg7i5wj","slide":2,"text":"Que hace el sistema","textPreview":"Que hace el sistema","textChars":19,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/bipobad4","slide":2,"text":"Carga el plan SMT y lo convierte en una vista de capacidad por linea, familia y mes.","textPreview":"Carga el plan SMT y lo convierte en una vista de capacidad por linea, familia y mes.","textChars":84,"textLines":1,"bbox":[78,178,720,58]}
+{"kind":"shape","id":"sh/knipofel","slide":2,"bbox":[86,310,190,96]}
+{"kind":"shape","id":"sh/lorqhkv6","slide":2,"bbox":[86,310,7,96]}
+{"kind":"textbox","id":"sh/yl07m5wv","slide":2,"text":"Importa","textPreview":"Importa","textChars":7,"textLines":1,"bbox":[108,328,145,20]}
+{"kind":"textbox","id":"sh/jm98fad0","slide":2,"text":"Excel","textPreview":"Excel","textChars":5,"textLines":1,"bbox":[108,354,145,34]}
+{"kind":"shape","id":"sh/0repcbeh","slide":2,"bbox":[316,310,190,96]}
+{"kind":"shape","id":"sh/1sn65gv2","slide":2,"bbox":[316,310,7,96]}
+{"kind":"textbox","id":"sh/x836xwnu","slide":2,"text":"Calcula","textPreview":"Calcula","textChars":7,"textLines":1,"bbox":[338,328,145,20]}
+{"kind":"textbox","id":"sh/cnu5or69","slide":2,"text":"Capacidad","textPreview":"Capacidad","textChars":9,"textLines":1,"bbox":[338,354,145,34]}
+{"kind":"shape","id":"sh/bmlovm5o","slide":2,"bbox":[546,310,190,96]}
+{"kind":"shape","id":"sh/alcnmho3","slide":2,"bbox":[546,310,7,96]}
+{"kind":"textbox","id":"sh/lcn61gnq","slide":2,"text":"Detecta","textPreview":"Detecta","textChars":7,"textLines":1,"bbox":[568,328,145,20]}
+{"kind":"textbox","id":"sh/kbepsbml","slide":2,"text":"Riesgo","textPreview":"Riesgo","textChars":6,"textLines":1,"bbox":[568,354,145,34]}
+{"kind":"shape","id":"sh/zaloz650","slide":2,"bbox":[776,310,190,96]}
+{"kind":"shape","id":"sh/y9c7q1of","slide":2,"bbox":[776,310,7,96]}
+{"kind":"textbox","id":"sh/9gn65gn2","slide":2,"text":"Permite","textPreview":"Permite","textChars":7,"textLines":1,"bbox":[798,328,145,20]}
+{"kind":"textbox","id":"sh/8fepwbmh","slide":2,"text":"Ajustar","textPreview":"Ajustar","textChars":7,"textLines":1,"bbox":[798,354,145,34]}
+{"kind":"textbox","id":"sh/sv6hojy5","slide":2,"text":"El usuario no necesita entender todas las formulas para empezar. Solo debe saber de donde vienen los datos y que significa cada resultado.","textPreview":"El usuario no necesita entender todas las formulas para empezar. Solo debe saber de donde vienen los datos y que significa cada resultado.","textChars":138,"textLines":1,"bbox":[178,500,840,52]}
+{"kind":"textbox","id":"sh/dwfihoza","slide":2,"text":"Capacity Planner SMT  01","textPreview":"Capacity Planner SMT  01","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"notes","id":"nt/y7ggmj","slide":2,"text":""}
+{"kind":"slide","id":"sl/axc8e6","slide":3,"title":"CAPACITY PLANNER SMT","textShapes":19}
+{"kind":"textbox","id":"sh/xozmxsb2","slide":3,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/alonmdcb","slide":3,"text":"Flujo de uso","textPreview":"Flujo de uso","textChars":12,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"shape","id":"sh/vmh4vitw","slide":3,"bbox":[76,235,185,205]}
+{"kind":"shape","id":"sh/8j6lknu5","slide":3,"bbox":[98,260,45,45]}
+{"kind":"textbox","id":"sh/9kfmtsbq","slide":3,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[98,269,45,26]}
+{"kind":"textbox","id":"sh/mho3idcf","slide":3,"text":"Importar","textPreview":"Importar","textChars":8,"textLines":1,"bbox":[98,326,140,30]}
+{"kind":"textbox","id":"sh/nix4ritk","slide":3,"text":"Carga FMD SMT o plantillas","textPreview":"Carga FMD SMT o plantillas","textChars":26,"textLines":1,"bbox":[98,370,135,48]}
+{"kind":"shape","id":"sh/sfa5w7up","slide":3,"bbox":[300,235,185,205]}
+{"kind":"shape","id":"sh/tgjm5cba","slide":3,"bbox":[322,260,45,45]}
+{"kind":"textbox","id":"sh/5gnid0ny","slide":3,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[322,269,45,26]}
+{"kind":"textbox","id":"sh/4vehkvmt","slide":3,"text":"Validar","textPreview":"Validar","textChars":7,"textLines":1,"bbox":[322,326,140,30]}
+{"kind":"textbox","id":"sh/3u50bq58","slide":3,"text":"Revisa datos faltantes","textPreview":"Revisa datos faltantes","textChars":22,"textLines":1,"bbox":[322,370,135,48]}
+{"kind":"shape","id":"sh/itwzilon","slide":3,"bbox":[524,235,185,205]}
+{"kind":"shape","id":"sh/hsni9gn2","slide":3,"bbox":[546,260,45,45]}
+{"kind":"textbox","id":"sh/grehgb6h","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[546,269,45,26]}
+{"kind":"textbox","id":"sh/vqlg7q5w","slide":3,"text":"Resumen","textPreview":"Resumen","textChars":7,"textLines":1,"bbox":[546,326,140,30]}
+{"kind":"textbox","id":"sh/upczelob","slide":3,"text":"Entiende el trimestre","textPreview":"Entiende el trimestre","textChars":21,"textLines":1,"bbox":[546,370,135,48]}
+{"kind":"shape","id":"sh/1o7ilkn6","slide":3,"bbox":[748,235,185,205]}
+{"kind":"shape","id":"sh/0nyhsfml","slide":3,"bbox":[770,260,45,45]}
+{"kind":"textbox","id":"sh/kr61ojux","slide":3,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[770,269,45,26]}
+{"kind":"textbox","id":"sh/lsf2hovi","slide":3,"text":"Capacidad","textPreview":"Capacidad","textChars":9,"textLines":1,"bbox":[770,326,140,30]}
+{"kind":"textbox","id":"sh/ypojm9cr","slide":3,"text":"Ve lineas y familias","textPreview":"Ve lineas y familias","textChars":20,"textLines":1,"bbox":[770,370,135,48]}
+{"kind":"shape","id":"sh/zqxkvedc","slide":3,"bbox":[972,235,185,205]}
+{"kind":"shape","id":"sh/cn61kju1","slide":3,"bbox":[994,260,45,45]}
+{"kind":"textbox","id":"sh/xof2tovm","slide":3,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[994,269,45,26]}
+{"kind":"textbox","id":"sh/a14ji9cv","slide":3,"text":"Ajustar","textPreview":"Ajustar","textChars":7,"textLines":1,"bbox":[994,326,140,30]}
+{"kind":"textbox","id":"sh/bmxkredg","slide":3,"text":"Mueve familia o factor","textPreview":"Mueve familia o factor","textChars":22,"textLines":1,"bbox":[994,370,135,48]}
+{"kind":"textbox","id":"sh/ozm1gzup","slide":3,"text":"Lectura simple: primero se carga el plan, luego el sistema dice si los datos son confiables y donde se necesita actuar.","textPreview":"Lectura simple: primero se carga el plan, luego el sistema dice si los datos son confiables y donde se necesita actuar.","textChars":119,"textLines":1,"bbox":[154,520,940,52]}
+{"kind":"textbox","id":"sh/p0v2p4va","slide":3,"text":"Capacity Planner SMT  02","textPreview":"Capacity Planner SMT  02","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"notes","id":"nt/axc8e6","slide":3,"text":""}
+{"kind":"slide","id":"sl/g0kt7z","slide":4,"title":"CAPACITY PLANNER SMT","textShapes":10}
+{"kind":"textbox","id":"sh/5c3ahsfa","slide":4,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/i9cr6dwj","slide":4,"text":"Summary SMT","textPreview":"Summary SMT","textChars":11,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"shape","id":"sh/3alsfix4","slide":4,"bbox":[78,190,6,42]}
+{"kind":"textbox","id":"sh/sfu9cnel","slide":4,"text":"Para que sirve","textPreview":"Para que sirve","textChars":14,"textLines":1,"bbox":[96,189,420,48]}
+{"kind":"textbox","id":"sh/dgnalsf6","slide":4,"text":"Da una lectura ejecutiva del trimestre antes de entrar al detalle.","textPreview":"Da una lectura ejecutiva del trimestre antes de entrar al detalle.","textChars":66,"textLines":1,"bbox":[96,250,390,54]}
+{"kind":"shape","id":"sh/qdcraxwv","slide":4,"bbox":[78,335,6,42]}
+{"kind":"textbox","id":"sh/relsjix0","slide":4,"text":"Que revisa el usuario","textPreview":"Que revisa el usuario","textChars":21,"textLines":1,"bbox":[96,334,420,48]}
+{"kind":"shape","id":"sh/8ja903eh","slide":4,"bbox":[96,399,8,8]}
+{"kind":"textbox","id":"sh/9kjq98f2","slide":4,"text":"MPS total del periodo","textPreview":"MPS total del periodo","textChars":21,"textLines":1,"bbox":[118,392,410,36]}
+{"kind":"shape","id":"sh/5wfit0ry","slide":4,"bbox":[96,445,8,8]}
+{"kind":"textbox","id":"sh/4v6h0vqt","slide":4,"text":"Lineas SMT cargadas","textPreview":"Lineas SMT cargadas","textChars":19,"textLines":1,"bbox":[118,438,410,36]}
+{"kind":"shape","id":"sh/jux0rq98","slide":4,"bbox":[96,491,8,8]}
+{"kind":"textbox","id":"sh/itozyl8n","slide":4,"text":"Cuello de botella","textPreview":"Cuello de botella","textChars":17,"textLines":1,"bbox":[118,484,410,36]}
+{"kind":"shape","id":"sh/t0zix07a","slide":4,"bbox":[96,537,8,8]}
+{"kind":"textbox","id":"sh/szqh4vqp","slide":4,"text":"Distribucion mensual por BU","textPreview":"Distribucion mensual por BU","textChars":27,"textLines":1,"bbox":[118,530,410,36]}
+{"kind":"textbox","id":"sh/6xoz2l8j","slide":4,"text":"Capacity Planner SMT  03","textPreview":"Capacity Planner SMT  03","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"image","id":"im/wbat8bix","slide":4,"name":"","geometry":"roundRect","alt":"Pantalla Summary SMT","bbox":[560,94,640,505]}
+{"kind":"notes","id":"nt/g0kt7z","slide":4,"text":""}
+{"kind":"slide","id":"sl/mdj1yx","slide":5,"title":"CAPACITY PLANNER SMT","textShapes":8}
+{"kind":"textbox","id":"sh/1ozypsny","slide":5,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/elozexon","slide":5,"text":"Capacidad SMT","textPreview":"Capacidad SMT","textChars":13,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/fmxgn25s","slide":5,"text":"La pantalla principal para decidir si la carga cabe en cada linea.","textPreview":"La pantalla principal para decidir si la carga cabe en cada linea.","textChars":66,"textLines":1,"bbox":[76,152,470,54]}
+{"kind":"shape","id":"sh/sz6hcn6h","slide":5,"bbox":[78,242,410,178]}
+{"kind":"textbox","id":"sh/tkfylsn2","slide":5,"text":"Como leer la tabla","textPreview":"Como leer la tabla","textChars":18,"textLines":1,"bbox":[104,264,300,28]}
+{"kind":"textbox","id":"sh/6xozadob","slide":5,"text":"MPS = volumen requerido\nCap = capacidad calculada\nDelta = capacidad menos volumen","textPreview":"MPS = volumen requerido | Cap = capacidad calculada | Delta = capacidad menos volumen","textChars":81,"textLines":3,"bbox":[104,312,330,84]}
+{"kind":"shape","id":"sh/ryxgji5w","slide":5,"bbox":[78,452,410,122]}
+{"kind":"textbox","id":"sh/cvahor6l","slide":5,"text":"Semaforo de utilizacion","textPreview":"Semaforo de utilizacion","textChars":23,"textLines":1,"bbox":[104,472,300,24]}
+{"kind":"textbox","id":"sh/dgjixcn6","slide":5,"text":"Verde hasta 85.4%\nAmarillo de 85.5% a 99.4%\nRojo arriba de 99.4%","textPreview":"Verde hasta 85.4% | Amarillo de 85.5% a 99.4% | Rojo arriba de 99.4%","textChars":64,"textLines":3,"bbox":[104,508,330,56]}
+{"kind":"textbox","id":"sh/07uxkvm9","slide":5,"text":"Capacity Planner SMT  04","textPreview":"Capacity Planner SMT  04","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"image","id":"im/a5836lcj","slide":5,"name":"","geometry":"roundRect","alt":"Pantalla Capacidad SMT","bbox":[530,88,690,510]}
+{"kind":"notes","id":"nt/mdj1yx","slide":5,"text":""}
+{"kind":"slide","id":"sl/zbaeqz","slide":6,"title":"CAPACITY PLANNER SMT","textShapes":10}
+{"kind":"textbox","id":"sh/d4faxg7y","slide":6,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/q1orml87","slide":6,"text":"Ajustes de planeacion","textPreview":"Ajustes de planeacion","textChars":21,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/r2x8v6ps","slide":6,"text":"Cuando cambia la demanda, el planeador puede probar alternativas sin rehacer el archivo completo.","textPreview":"Cuando cambia la demanda, el planeador puede probar alternativas sin rehacer el archivo completo.","textChars":97,"textLines":1,"bbox":[78,154,760,58]}
+{"kind":"shape","id":"sh/07q9sv69","slide":6,"bbox":[94,270,6,42]}
+{"kind":"textbox","id":"sh/18za107u","slide":6,"text":"Que puede ajustar","textPreview":"Que puede ajustar","textChars":17,"textLines":1,"bbox":[112,269,420,48]}
+{"kind":"shape","id":"sh/e5orqloj","slide":6,"bbox":[112,337,8,8]}
+{"kind":"textbox","id":"sh/f6hszqpo","slide":6,"text":"Mover una familia a otra linea SMT","textPreview":"Mover una familia a otra linea SMT","textChars":34,"textLines":1,"bbox":[134,330,410,36]}
+{"kind":"shape","id":"sh/gbm9grq5","slide":6,"bbox":[112,389,8,8]}
+{"kind":"textbox","id":"sh/hcvqpw7q","slide":6,"text":"Cambiar factor o distribucion de carga","textPreview":"Cambiar factor o distribucion de carga","textChars":38,"textLines":1,"bbox":[134,382,410,36]}
+{"kind":"shape","id":"sh/h03ydsv2","slide":6,"bbox":[112,441,8,8]}
+{"kind":"textbox","id":"sh/gzuh4nuh","slide":6,"text":"Revisar el impacto en utilizacion y delta","textPreview":"Revisar el impacto en utilizacion y delta","textChars":41,"textLines":1,"bbox":[134,434,410,36]}
+{"kind":"shape","id":"sh/fylgbidw","slide":6,"bbox":[710,250,380,230]}
+{"kind":"textbox","id":"sh/uxcz2dcb","slide":6,"text":"Regla practica","textPreview":"Regla practica","textChars":14,"textLines":1,"bbox":[750,286,280,34]}
+{"kind":"textbox","id":"sh/ponyhcvy","slide":6,"text":"El objetivo es mantener las lineas en verde cuando sea posible. Si una linea queda amarilla, requiere revision. Si queda roja, hay sobrecarga.","textPreview":"El objetivo es mantener las lineas en verde cuando sea posible. Si una linea queda amarilla, requiere revision. Si queda roja, hay sobrec...","textChars":142,"textLines":1,"bbox":[750,350,290,84]}
+{"kind":"textbox","id":"sh/o3uh87ud","slide":6,"text":"Capacity Planner SMT  05","textPreview":"Capacity Planner SMT  05","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"notes","id":"nt/zbaeqz","slide":6,"text":""}
+{"kind":"slide","id":"sl/vc3689","slide":7,"title":"CAPACITY PLANNER SMT","textShapes":9}
+{"kind":"textbox","id":"sh/xw3qtszi","slide":7,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/atcrixgr","slide":7,"text":"Administracion SMT","textPreview":"Administracion SMT","textChars":18,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/vul8rihc","slide":7,"text":"Aqui viven los datos maestros que alimentan los calculos.","textPreview":"Aqui viven los datos maestros que alimentan los calculos.","textChars":57,"textLines":1,"bbox":[78,154,440,54]}
+{"kind":"shape","id":"sh/kze9o7y9","slide":7,"bbox":[92,272,8,8]}
+{"kind":"textbox","id":"sh/50nqxcze","slide":7,"text":"Familias, subfamilias y numeros de parte","textPreview":"Familias, subfamilias y numeros de parte","textChars":40,"textLines":1,"bbox":[114,265,410,36]}
+{"kind":"shape","id":"sh/ixcrmxg3","slide":7,"bbox":[92,322,8,8]}
+{"kind":"textbox","id":"sh/jyl8v2ho","slide":7,"text":"UPH por familia y por linea","textPreview":"UPH por familia y por linea","textChars":27,"textLines":1,"bbox":[114,315,410,36]}
+{"kind":"shape","id":"sh/s3e9s7y5","slide":7,"bbox":[92,372,8,8]}
+{"kind":"textbox","id":"sh/tonq1czq","slide":7,"text":"Distribucion por linea","textPreview":"Distribucion por linea","textChars":22,"textLines":1,"bbox":[114,365,410,36]}
+{"kind":"shape","id":"sh/x4zqlofy","slide":7,"bbox":[92,422,8,8]}
+{"kind":"textbox","id":"sh/c369cjyd","slide":7,"text":"Calendario y targets SMT","textPreview":"Calendario y targets SMT","textChars":24,"textLines":1,"bbox":[114,415,410,36]}
+{"kind":"textbox","id":"sh/b2x8jexs","slide":7,"text":"Esta pantalla evita nombres duplicados y reduce errores de captura.","textPreview":"Esta pantalla evita nombres duplicados y reduce errores de captura.","textChars":67,"textLines":1,"bbox":[92,510,410,50]}
+{"kind":"textbox","id":"sh/lszqpofu","slide":7,"text":"Capacity Planner SMT  06","textPreview":"Capacity Planner SMT  06","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"image","id":"im/toba54na","slide":7,"name":"","geometry":"roundRect","alt":"Pantalla Administracion SMT","bbox":[560,88,640,510]}
+{"kind":"notes","id":"nt/vc3689","slide":7,"text":""}
+{"kind":"slide","id":"sl/h9dd7p","slide":8,"title":"CAPACITY PLANNER SMT","textShapes":9}
+{"kind":"textbox","id":"sh/e10j29of","slide":8,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/14r2do76","slide":8,"text":"Importacion de datos","textPreview":"Importacion de datos","textChars":20,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/g3i14j6l","slide":8,"text":"El sistema recibe el archivo FMD SMT o plantillas descargables.","textPreview":"El sistema recibe el archivo FMD SMT o plantillas descargables.","textChars":63,"textLines":1,"bbox":[78,154,480,54]}
+{"kind":"shape","id":"sh/ryp07epo","slide":8,"bbox":[86,260,6,42]}
+{"kind":"textbox","id":"sh/6xgjy9oj","slide":8,"text":"Que debe hacer el usuario","textPreview":"Que debe hacer el usuario","textChars":25,"textLines":1,"bbox":[104,259,420,48]}
+{"kind":"shape","id":"sh/t072947u","slide":8,"bbox":[104,327,8,8]}
+{"kind":"textbox","id":"sh/szy10j69","slide":8,"text":"Descargar la plantilla correcta","textPreview":"Descargar la plantilla correcta","textChars":31,"textLines":1,"bbox":[126,320,410,36]}
+{"kind":"shape","id":"sh/jap03ups","slide":8,"bbox":[104,377,8,8]}
+{"kind":"textbox","id":"sh/i9gjupo7","slide":8,"text":"Llenar volumen, UPH y distribucion","textPreview":"Llenar volumen, UPH y distribucion","textChars":34,"textLines":1,"bbox":[126,370,410,36]}
+{"kind":"shape","id":"sh/sb6t0rm1","slide":8,"bbox":[104,427,8,8]}
+{"kind":"textbox","id":"sh/dcza9wnm","slide":8,"text":"Cargar el archivo y esperar confirmacion","textPreview":"Cargar el archivo y esperar confirmacion","textChars":40,"textLines":1,"bbox":[126,420,410,36]}
+{"kind":"shape","id":"sh/qporyh4v","slide":8,"bbox":[104,477,8,8]}
+{"kind":"textbox","id":"sh/raxs7m5g","slide":8,"text":"Revisar errores antes de seguir","textPreview":"Revisar errores antes de seguir","textChars":31,"textLines":1,"bbox":[126,470,410,36]}
+{"kind":"textbox","id":"sh/5ofa5cnq","slide":8,"text":"Capacity Planner SMT  07","textPreview":"Capacity Planner SMT  07","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"image","id":"im/nyp03mpc","slide":8,"name":"","geometry":"roundRect","alt":"Pantalla Importacion Excel","bbox":[565,88,635,510]}
+{"kind":"notes","id":"nt/h9dd7p","slide":8,"text":""}
+{"kind":"slide","id":"sl/pqtlqr","slide":9,"title":"CAPACITY PLANNER SMT","textShapes":8}
+{"kind":"textbox","id":"sh/qlcjmpgr","slide":9,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/don2x4zi","slide":9,"text":"Diagnostico SMT","textPreview":"Diagnostico SMT","textChars":15,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/cne1ozyx","slide":9,"text":"La pantalla de diagnostico responde una pregunta simple: los datos estan listos para planear?","textPreview":"La pantalla de diagnostico responde una pregunta simple: los datos estan listos para planear?","textChars":93,"textLines":1,"bbox":[78,154,470,70]}
+{"kind":"shape","id":"sh/3yl0ruh0","slide":9,"bbox":[92,301,8,8]}
+{"kind":"textbox","id":"sh/2xcjipgv","slide":9,"text":"Critico: falta informacion para calcular bien","textPreview":"Critico: falta informacion para calcular bien","textChars":45,"textLines":1,"bbox":[114,294,410,36]}
+{"kind":"shape","id":"sh/pk3it4z6","slide":9,"bbox":[92,355,8,8]}
+{"kind":"textbox","id":"sh/ozu1kzyl","slide":9,"text":"Advertencia: conviene revisar antes de presentar","textPreview":"Advertencia: conviene revisar antes de presentar","textChars":48,"textLines":1,"bbox":[114,348,410,36]}
+{"kind":"shape","id":"sh/7upk3ehk","slide":9,"bbox":[92,409,8,8]}
+{"kind":"textbox","id":"sh/mtwju9gz","slide":9,"text":"OK: el dato base esta cargado","textPreview":"OK: el dato base esta cargado","textChars":29,"textLines":1,"bbox":[114,402,410,36]}
+{"kind":"textbox","id":"sh/836t8fm1","slide":9,"text":"Cada hallazgo incluye una accion recomendada para que el usuario sepa que corregir.","textPreview":"Cada hallazgo incluye una accion recomendada para que el usuario sepa que corregir.","textChars":83,"textLines":1,"bbox":[92,510,430,52]}
+{"kind":"textbox","id":"sh/m1ob654b","slide":9,"text":"Capacity Planner SMT  08","textPreview":"Capacity Planner SMT  08","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"image","id":"im/yx0zqt83","slide":9,"name":"","geometry":"roundRect","alt":"Pantalla Diagnostico SMT","bbox":[565,88,635,510]}
+{"kind":"notes","id":"nt/pqtlqr","slide":9,"text":""}
+{"kind":"slide","id":"sl/ltsy3i","slide":10,"title":"Como explicarlo en una demo","textShapes":19}
+{"kind":"textbox","id":"sh/edk7it47","slide":10,"text":"Como explicarlo en una demo","textPreview":"Como explicarlo en una demo","textChars":27,"textLines":1,"bbox":[72,70,760,70]}
+{"kind":"textbox","id":"sh/1gv6t83y","slide":10,"text":"Guion para que una persona nueva entienda el sistema en pocos minutos.","textPreview":"Guion para que una persona nueva entienda el sistema en pocos minutos.","textChars":70,"textLines":1,"bbox":[76,146,760,36]}
+{"kind":"shape","id":"sh/gfmpk3md","slide":10,"bbox":[96,232,54,54]}
+{"kind":"textbox","id":"sh/3idovilo","slide":10,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[96,245,54,24]}
+{"kind":"textbox","id":"sh/2h47md4j","slide":10,"text":"Summary SMT","textPreview":"Summary SMT","textChars":11,"textLines":1,"bbox":[180,234,220,28]}
+{"kind":"textbox","id":"sh/pkv6x83u","slide":10,"text":"Empieza por la vista ejecutiva y el cuello de botella.","textPreview":"Empieza por la vista ejecutiva y el cuello de botella.","textChars":54,"textLines":1,"bbox":[420,237,560,32]}
+{"kind":"shape","id":"sh/ojmponm9","slide":10,"bbox":[96,308,54,54]}
+{"kind":"textbox","id":"sh/jm9ojelk","slide":10,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[96,321,54,24]}
+{"kind":"textbox","id":"sh/il0na94z","slide":10,"text":"Capacidad SMT","textPreview":"Capacidad SMT","textChars":13,"textLines":1,"bbox":[180,310,220,28]}
+{"kind":"textbox","id":"sh/czm907up","slide":10,"text":"Explica MPS, Cap, Delta y colores de utilizacion.","textPreview":"Explica MPS, Cap, Delta y colores de utilizacion.","textChars":49,"textLines":1,"bbox":[420,313,560,32]}
+{"kind":"shape","id":"sh/d0vatcba","slide":10,"bbox":[96,384,54,54]}
+{"kind":"textbox","id":"sh/qx4ryxcj","slide":10,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[96,397,54,24]}
+{"kind":"textbox","id":"sh/rydsr2t4","slide":10,"text":"Editar","textPreview":"Editar","textChars":6,"textLines":1,"bbox":[180,386,220,28]}
+{"kind":"textbox","id":"sh/0nm947ul","slide":10,"text":"Muestra como mover familias o ajustar factor.","textPreview":"Muestra como mover familias o ajustar factor.","textChars":45,"textLines":1,"bbox":[420,389,560,32]}
+{"kind":"shape","id":"sh/1ofaxcb6","slide":10,"bbox":[96,460,54,54]}
+{"kind":"textbox","id":"sh/e14r2hcv","slide":10,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[96,473,54,24]}
+{"kind":"textbox","id":"sh/zmdsv2tg","slide":10,"text":"Administracion","textPreview":"Administracion","textChars":14,"textLines":1,"bbox":[180,462,220,28]}
+{"kind":"textbox","id":"sh/gr29snuh","slide":10,"text":"Ensena donde viven familias, UPH y distribucion.","textPreview":"Ensena donde viven familias, UPH y distribucion.","textChars":48,"textLines":1,"bbox":[420,465,560,32]}
+{"kind":"shape","id":"sh/hsbq1sb2","slide":10,"bbox":[96,536,54,54]}
+{"kind":"textbox","id":"sh/xcjy9kzu","slide":10,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[96,549,54,24]}
+{"kind":"textbox","id":"sh/wbahgfi9","slide":10,"text":"Diagnostico","textPreview":"Diagnostico","textChars":11,"textLines":1,"bbox":[180,538,220,28]}
+{"kind":"textbox","id":"sh/ba1g7aho","slide":10,"text":"Cierra mostrando si los datos estan listos.","textPreview":"Cierra mostrando si los datos estan listos.","textChars":43,"textLines":1,"bbox":[420,541,560,32]}
+{"kind":"shape","id":"sh/a9sfe503","slide":10,"bbox":[930,92,230,84]}
+{"kind":"textbox","id":"sh/lg3ydkzq","slide":10,"text":"Mensaje clave","textPreview":"Mensaje clave","textChars":13,"textLines":1,"bbox":[960,116,170,28]}
+{"kind":"textbox","id":"sh/kfuhkfi5","slide":10,"text":"Importar, validar, revisar capacidad y ajustar.","textPreview":"Importar, validar, revisar capacidad y ajustar.","textChars":47,"textLines":1,"bbox":[920,600,260,44]}
+{"kind":"notes","id":"nt/ltsy3i","slide":10,"text":""}
+{"kind":"slide","id":"sl/a7drks","slide":11,"title":"CAPACITY PLANNER SMT","textShapes":14}
+{"kind":"textbox","id":"sh/udcjexc3","slide":11,"text":"CAPACITY PLANNER SMT","textPreview":"CAPACITY PLANNER SMT","textChars":20,"textLines":1,"bbox":[72,48,520,22]}
+{"kind":"textbox","id":"sh/h03ipcbe","slide":11,"text":"Que debe recordar el usuario","textPreview":"Que debe recordar el usuario","textChars":28,"textLines":1,"bbox":[72,78,820,70]}
+{"kind":"textbox","id":"sh/wzu1g7at","slide":11,"text":"Tres ideas son suficientes para empezar a usar el sistema.","textPreview":"Tres ideas son suficientes para empezar a usar el sistema.","textChars":58,"textLines":1,"bbox":[78,154,760,42]}
+{"kind":"shape","id":"sh/7a10jitc","slide":11,"bbox":[110,260,300,210]}
+{"kind":"shape","id":"sh/m9szadcr","slide":11,"bbox":[490,260,300,210]}
+{"kind":"shape","id":"sh/9cjilsbi","slide":11,"bbox":[870,260,300,210]}
+{"kind":"textbox","id":"sh/8bahcnux","slide":11,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[135,292,42,34]}
+{"kind":"textbox","id":"sh/r650vmtg","slide":11,"text":"Importar bien","textPreview":"Importar bien","textChars":13,"textLines":1,"bbox":[135,344,230,34]}
+{"kind":"textbox","id":"sh/65wjmhsb","slide":11,"text":"El calculo depende de volumen, UPH, distribucion y calendario.","textPreview":"El calculo depende de volumen, UPH, distribucion y calendario.","textChars":62,"textLines":1,"bbox":[135,400,230,46]}
+{"kind":"textbox","id":"sh/wfalszmt","slide":11,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[515,292,42,34]}
+{"kind":"textbox","id":"sh/xgj214ne","slide":11,"text":"Leer el semaforo","textPreview":"Leer el semaforo","textChars":16,"textLines":1,"bbox":[515,344,230,34]}
+{"kind":"textbox","id":"sh/ads3qp4n","slide":11,"text":"Verde cabe, amarillo se revisa, rojo necesita accion.","textPreview":"Verde cabe, amarillo se revisa, rojo necesita accion.","textChars":53,"textLines":1,"bbox":[515,400,230,46]}
+{"kind":"textbox","id":"sh/ve1kzu58","slide":11,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[895,292,42,34]}
+{"kind":"textbox","id":"sh/8ralozmh","slide":11,"text":"Ajustar con criterio","textPreview":"Ajustar con criterio","textChars":20,"textLines":1,"bbox":[895,344,230,34]}
+{"kind":"textbox","id":"sh/9sj2x4n2","slide":11,"text":"Mover familias o cambiar factor sirve para probar escenarios.","textPreview":"Mover familias o cambiar factor sirve para probar escenarios.","textChars":61,"textLines":1,"bbox":[895,400,230,46]}
+{"kind":"textbox","id":"sh/mp83mp4r","slide":11,"text":"Con eso, una persona nueva entiende que hace la herramienta y donde debe entrar para cada actividad.","textPreview":"Con eso, una persona nueva entiende que hace la herramienta y donde debe entrar para cada actividad.","textChars":100,"textLines":1,"bbox":[170,545,940,44]}
+{"kind":"textbox","id":"sh/nqhkvu5c","slide":11,"text":"Capacity Planner SMT  10","textPreview":"Capacity Planner SMT  10","textChars":24,"textLines":1,"bbox":[72,675,260,18]}
+{"kind":"notes","id":"nt/a7drks","slide":11,"text":""}

@@ -1,0 +1,782 @@
+@page "/importar-excel"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@using ProductionCapacity.Data.ExcelImport
+@inject IDbContextFactory<PlanningDbContext> DbFactory
+@inject ParityComparisonService ParityService
+
+<PageTitle>Importar Excel</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">Paridad Excel</p>
+            <h1>Importar modelo de capacidad</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Estado</span>
+            <strong>@ImportState</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @StatusClass" role="alert">@StatusMessage</div>
+    }
+    @if (IsBusy)
+    {
+        <div class="alert alert-info" role="status" aria-live="polite">@BusyMessage</div>
+    }
+
+    @if (DatabaseSnapshot is not null)
+    {
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Validacion en base de datos</h2>
+                <span>@DatabaseSnapshot.Label</span>
+            </div>
+            <div class="table-wrap import-preview">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th>Escenarios</th>
+                            <th>Semanas</th>
+                            <th>Productos</th>
+                            <th>Demanda</th>
+                            <th>Operaciones</th>
+                            <th>Rates</th>
+                            <th>Capacidades</th>
+                            <th>Crossrefs</th>
+                            <th>Tiempos test</th>
+                            <th>Recursos</th>
+                            <th>Inventarios</th>
+                            <th>Familias SMT</th>
+                            <th>Vol SMT</th>
+                            <th>UPH SMT</th>
+                            <th>UPH linea</th>
+                            <th>Lineas SMT</th>
+                            <th>Targets SMT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>@DatabaseSnapshot.ScenarioCount</td>
+                            <td>@DatabaseSnapshot.ProductionWeekCount</td>
+                            <td>@DatabaseSnapshot.PartNumberCount</td>
+                            <td>@DatabaseSnapshot.WeeklyDemandCount</td>
+                            <td>@DatabaseSnapshot.OperationCount</td>
+                            <td>@DatabaseSnapshot.OperationRateCount</td>
+                            <td>@DatabaseSnapshot.OperationCapacityCount</td>
+                            <td>@DatabaseSnapshot.CrossReferenceCount</td>
+                            <td>@DatabaseSnapshot.TestTimeCount</td>
+                            <td>@DatabaseSnapshot.ResourceTypeCount</td>
+                            <td>@DatabaseSnapshot.ResourceInventoryCount</td>
+                            <td>@DatabaseSnapshot.SmtFamilyCount</td>
+                            <td>@DatabaseSnapshot.SmtFamilyVolumeCount</td>
+                            <td>@DatabaseSnapshot.SmtFamilyRateCount</td>
+                            <td>@DatabaseSnapshot.SmtLineFamilyRateCount</td>
+                            <td>@DatabaseSnapshot.SmtLineAssignmentCount</td>
+                            <td>@DatabaseSnapshot.SmtCapacityTargetCount</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    <section class="panel">
+        <div class="panel-title">
+            <h2>Plantillas CSV</h2>
+            <span>@ImportTemplates.Count archivos</span>
+        </div>
+        <p class="muted-cell">
+            Descarga las plantillas, llena los datos en Excel y despues importalas en esta misma pagina.
+        </p>
+        <div class="control-grid">
+            <a class="btn btn-primary" href="/plantillas-importacion/todas.zip" download>Descargar todas ZIP</a>
+        </div>
+        <div class="table-wrap">
+            <table class="planner-table">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Uso</th>
+                        <th>Descarga</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var template in ImportTemplates.Where(template => !template.IsAdvanced))
+                    {
+                        <tr>
+                            <td>@template.FileName</td>
+                            <td>@template.Description</td>
+                            <td><a class="btn btn-sm btn-secondary" href="@($"/plantillas-importacion/{template.FileName}")" download>Descargar</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <details class="advanced-import-templates">
+            <summary>Plantillas avanzadas</summary>
+            <div class="table-wrap">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th>Archivo</th>
+                            <th>Uso</th>
+                            <th>Descarga</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var template in ImportTemplates.Where(template => template.IsAdvanced))
+                        {
+                            <tr>
+                                <td>@template.FileName</td>
+                                <td>@template.Description</td>
+                                <td><a class="btn btn-sm btn-secondary" href="@($"/plantillas-importacion/{template.FileName}")" download>Descargar</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <h2>Cargar FMD SMT</h2>
+            <span>VOL, UPH y % Distribution</span>
+        </div>
+        <p class="muted-cell">
+            Selecciona el archivo FMD en formato .xlsx. Si trae hoja CONFIG, el sistema tomara de ahi el cuarto y año fiscal.
+        </p>
+        <div class="control-grid">
+            <a class="btn btn-secondary" href="/plantillas-importacion/fmd_smt_template.xlsx" download>Descargar plantilla FMD SMT</a>
+        </div>
+        <details class="advanced-import-templates">
+            <summary>Respaldo manual si el Excel no trae CONFIG</summary>
+            <div class="control-grid">
+                <label>
+                    Cuarto fiscal
+                    <select @bind="SelectedFiscalQuarter">
+                        <option value="1">Q1 - Ago/Sep/Oct</option>
+                        <option value="2">Q2 - Nov/Dic/Ene</option>
+                        <option value="3">Q3 - Feb/Mar/Abr</option>
+                        <option value="4">Q4 - May/Jun/Jul</option>
+                    </select>
+                </label>
+                <label>
+                    Año fiscal
+                    <input type="number" min="2000" max="2100" @bind="SelectedFiscalYear" />
+                </label>
+            </div>
+            <p class="muted-cell">@FiscalQuarterSummary</p>
+        </details>
+        <div class="control-grid">
+            <InputFile @key="FmdFileInputKey" OnChange="LoadFmdSmtWorkbookAsync" accept=".xlsx" disabled="@IsBusy" />
+            <button class="btn btn-primary" type="button" @onclick="ApplyPendingPackageAsync" disabled="@(IsBusy || PendingPackage is null)">Guardar importacion</button>
+        </div>
+        <p class="muted-cell">@SelectedFmdSummary</p>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <h2>Cargar CSV</h2>
+            <span>plantillas en import-templates</span>
+        </div>
+        <p class="muted-cell">
+            Selecciona uno o varios archivos CSV exportados desde Excel. El sistema valida el paquete antes de guardar.
+        </p>
+        <div class="control-grid">
+            <InputFile @key="FileInputKey" OnChange="LoadCsvFilesAsync" multiple disabled="@IsBusy" />
+            <button class="btn btn-primary" type="button" @onclick="ApplyPendingPackageAsync" disabled="@(IsBusy || PendingPackage is null)">Guardar importacion</button>
+            <button class="btn btn-secondary" type="button" @onclick="ComparePlanUabuAsync" disabled="@IsBusy">Comparar PLAN UABU</button>
+        </div>
+        <p class="muted-cell">@SelectedFileSummary</p>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <h2>Preview de importacion</h2>
+            <span>@PreviewLabel</span>
+        </div>
+        <div class="control-grid">
+            <button class="btn btn-secondary" type="button" @onclick="PreviewSampleAsync" disabled="@IsBusy">Generar preview de muestra</button>
+            <button class="btn btn-secondary" type="button" @onclick="ApplySampleAsync" disabled="@IsBusy">Aplicar muestra segura</button>
+        </div>
+        @if (Preview is not null)
+        {
+            <div class="table-wrap import-preview">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th>Escenarios</th>
+                            <th>Semanas</th>
+                            <th>Productos</th>
+                            <th>Demanda</th>
+                            <th>Operaciones</th>
+                            <th>Rates</th>
+                            <th>Capacidades</th>
+                            <th>Crossrefs</th>
+                            <th>Tiempos test</th>
+                            <th>Recursos</th>
+                            <th>Inventarios</th>
+                            <th>Vol SMT</th>
+                            <th>UPH SMT</th>
+                            <th>UPH linea</th>
+                            <th>Lineas SMT</th>
+                            <th>Targets SMT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>@Preview.ScenarioCount</td>
+                            <td>@Preview.ProductionWeekCount</td>
+                            <td>@Preview.PartNumberCount</td>
+                            <td>@Preview.WeeklyDemandCount</td>
+                            <td>@Preview.OperationCount</td>
+                            <td>@Preview.OperationRateCount</td>
+                            <td>@Preview.OperationCapacityCount</td>
+                            <td>@Preview.CrossReferenceCount</td>
+                            <td>@Preview.TestTimeCount</td>
+                            <td>@Preview.ResourceTypeCount</td>
+                            <td>@Preview.ResourceInventoryCount</td>
+                            <td>@Preview.SmtFamilyVolumeCount</td>
+                            <td>@Preview.SmtFamilyRateCount</td>
+                            <td>@Preview.SmtLineFamilyRateCount</td>
+                            <td>@Preview.SmtLineAssignmentCount</td>
+                            <td>@Preview.SmtCapacityTargetCount</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Preview.Warnings.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    @foreach (var warning in Preview.Warnings)
+                    {
+                        <div>@warning</div>
+                    }
+                </div>
+            }
+
+            @if (HasSmtImpact(Preview))
+            {
+                <div class="smt-impact-panel">
+                    <div class="panel-title">
+                        <h2>Revision SMT antes de guardar</h2>
+                        <span>impacto del paquete</span>
+                    </div>
+                    <div class="control-grid">
+                        <div class="summary-tile">
+                            <span>Familias nuevas</span>
+                            <strong>@Preview.SmtImpact.NewFamilies.Count</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span>Familias existentes</span>
+                            <strong>@Preview.SmtImpact.ExistingFamilies.Count</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span>UPH que se reemplaza</span>
+                            <strong>@Preview.SmtImpact.FamilyRateReplacements.Count</strong>
+                        </div>
+                        <div class="summary-tile">
+                            <span>Datos incompletos</span>
+                            <strong>@Preview.SmtImpact.IncompleteItems.Count</strong>
+                        </div>
+                    </div>
+                    <div class="table-wrap import-preview">
+                        <table class="planner-table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Familia</th>
+                                    <th>Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var family in Preview.SmtImpact.NewFamilies)
+                                {
+                                    <tr>
+                                        <td>Familia nueva</td>
+                                        <td>@family.ProductFamily</td>
+                                        <td>@(family.BusinessUnit ?? "-")</td>
+                                    </tr>
+                                }
+                                @foreach (var family in Preview.SmtImpact.ExistingFamilies)
+                                {
+                                    <tr>
+                                        <td>Familia existente</td>
+                                        <td>@family.ProductFamily</td>
+                                        <td>@(family.BusinessUnit ?? "-")</td>
+                                    </tr>
+                                }
+                                @foreach (var replacement in Preview.SmtImpact.FamilyRateReplacements)
+                                {
+                                    <tr>
+                                        <td>UPH que se reemplaza</td>
+                                        <td>@replacement.ProductFamily</td>
+                                        <td>@replacement.OperationCode: @DecimalRounding.FormatNatural(replacement.CurrentUnitsPerHour, decimals: 2) -> @DecimalRounding.FormatNatural(replacement.ImportedUnitsPerHour, decimals: 2)</td>
+                                    </tr>
+                                }
+                                @foreach (var issue in Preview.SmtImpact.IncompleteItems)
+                                {
+                                    <tr>
+                                        <td>Datos incompletos</td>
+                                        <td>@issue.ProductFamily</td>
+                                        <td>@issue.Message</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+    </section>
+
+    @if (Comparison is not null)
+    {
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Comparacion PLAN UABU</h2>
+                <span>@(Comparison.IsPassing ? "dentro de tolerancia" : "requiere revision")</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th>Semana</th>
+                            <th>Producto</th>
+                            <th>Operacion</th>
+                            <th>Carga Excel</th>
+                            <th>Carga sistema</th>
+                            <th>Disponible Excel</th>
+                            <th>Disponible sistema</th>
+                            <th>Restante Excel</th>
+                            <th>Restante sistema</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Comparison.Rows)
+                        {
+                            <tr>
+                                <td>@row.WeekName</td>
+                                <td>@row.PartNumber</td>
+                                <td>@row.OperationCode</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.ExpectedLoadHours)</td>
+                                <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualLoadHours)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.ExpectedAvailableHours)</td>
+                                <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualAvailableHours)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.ExpectedRemainingHours)</td>
+                                <td class="number-cell">@DecimalRounding.FormatOptionalUp(row.ActualRemainingHours)</td>
+                                <td>@(row.IsPassing ? "OK" : row.Message ?? "Diferencia")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private const long MaxCsvFileBytes = 5 * 1024 * 1024;
+    private const long MaxXlsxFileBytes = 25 * 1024 * 1024;
+
+    private ExcelCapacityImportPackage? PendingPackage { get; set; }
+    private ExcelCapacityImportPreview? Preview { get; set; }
+    private ParityComparisonResult? Comparison { get; set; }
+    private ImportDatabaseSnapshot? DatabaseSnapshot { get; set; }
+    private Guid FileInputKey { get; set; } = Guid.NewGuid();
+    private Guid FmdFileInputKey { get; set; } = Guid.NewGuid();
+    private int SelectedCsvCount { get; set; }
+    private string? SelectedFmdFileName { get; set; }
+    private int SelectedFiscalQuarter { get; set; } = 1;
+    private int SelectedFiscalYear { get; set; } = DateTime.Today.Year;
+    private int LastImportedFileCount { get; set; }
+    private string? LastImportedSourceLabel { get; set; }
+    private string ImportState { get; set; } = "Listo";
+    private string PreviewLabel { get; set; } = "sin paquete cargado";
+    private string? StatusMessage { get; set; }
+    private string StatusClass { get; set; } = "alert-success";
+    private bool IsBusy { get; set; }
+    private string BusyMessage { get; set; } = "Procesando importacion...";
+    private string SelectedFileSummary => SelectedCsvCount == 0
+        ? "Sin archivos seleccionados."
+        : $"{SelectedCsvCount} archivo(s) listos para guardar.";
+    private string SelectedFmdSummary => string.IsNullOrWhiteSpace(SelectedFmdFileName)
+        ? "Sin archivo FMD seleccionado."
+        : $"{SelectedFmdFileName} listo para guardar.";
+    private string FiscalQuarterSummary
+    {
+        get
+        {
+            var m1 = FiscalQuarterCalendar.GetPeriod(SelectedFiscalQuarter, SelectedFiscalYear, 1);
+            var m2 = FiscalQuarterCalendar.GetPeriod(SelectedFiscalQuarter, SelectedFiscalYear, 2);
+            var m3 = FiscalQuarterCalendar.GetPeriod(SelectedFiscalQuarter, SelectedFiscalYear, 3);
+            return $"M1 {m1.MonthLabel} ({m1.WeekCount} semanas), M2 {m2.MonthLabel} ({m2.WeekCount} semanas), M3 {m3.MonthLabel} ({m3.WeekCount} semanas).";
+        }
+    }
+    private static IReadOnlyList<ImportTemplateDownload> ImportTemplates { get; } =
+    [
+        new("smt_family_volumes.csv", "Volumen MPS mensual/semanal por familia SMT."),
+        new("smt_family_rates.csv", "UPH, bottleneck y changeover por familia SMT."),
+        new("smt_line_family_rates.csv", "UPH opcional por familia y linea SMT; usar cuando PCBAs CT tenga valores por linea."),
+        new("smt_line_assignments.csv", "Asignacion de familias SMT por linea y mes."),
+        new("scenarios.csv", "Escenarios de planeacion.", true),
+        new("production_weeks.csv", "Semanas, dias laborales, turnos, festivos y horas disponibles.", true),
+        new("part_numbers.csv", "Numeros de parte con BU, familia y yield base.", true),
+        new("weekly_demand.csv", "Demanda semanal por numero de parte o por familia.", true),
+        new("operations.csv", "Catalogo de operaciones y secuencia.", true),
+        new("operation_rates.csv", "Tiempos estandar, yield y factor de eficiencia por producto/familia-operacion.", true),
+        new("operation_capacities.csv", "Capacidad semanal por operacion.", true),
+        new("cross_references.csv", "Referencias cruzadas de numeros de parte.", true),
+        new("test_times.csv", "Tiempos de prueba por familia o numero de parte.", true),
+        new("resource_types.csv", "Catalogo de recursos como racks, accesorios, chambers o maquinas.", true),
+        new("resource_configurations.csv", "Configuracion de recursos por operacion y producto/familia.", true),
+        new("resource_inventories.csv", "Inventario semanal de recursos.", true),
+        new("smt_capacity_targets.csv", "Valores esperados de Capacity SMT para comparacion 1:1.", true),
+        new("source_warnings.csv", "Advertencias detectadas desde el archivo origen.", true)
+    ];
+
+    private async Task LoadCsvFilesAsync(InputFileChangeEventArgs args)
+    {
+        try
+        {
+            StartBusy("Leyendo CSV y generando preview...");
+            var files = new List<CsvImportFile>();
+            foreach (var file in args.GetMultipleFiles(maximumFileCount: 50))
+            {
+                await using var stream = file.OpenReadStream(MaxCsvFileBytes);
+                using var reader = new StreamReader(stream);
+                files.Add(new CsvImportFile(file.Name, await reader.ReadToEndAsync()));
+            }
+
+            PendingPackage = CsvCapacityImportParser.Parse(files);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var service = new ExcelCapacityImportService(db);
+            Preview = await service.PreviewAsync(PendingPackage);
+            Comparison = null;
+            DatabaseSnapshot = null;
+            SelectedCsvCount = files.Count;
+            SelectedFmdFileName = null;
+            ImportState = "Preview CSV";
+            PreviewLabel = $"{files.Count} archivo(s) cargados";
+            StatusClass = Preview.Warnings.Count == 0 ? "alert-success" : "alert-warning";
+            StatusMessage = "Preview CSV generado correctamente. Revisa conteos y advertencias antes de guardar.";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo leer el paquete CSV: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private async Task LoadFmdSmtWorkbookAsync(InputFileChangeEventArgs args)
+    {
+        try
+        {
+            StartBusy("Leyendo FMD SMT y generando preview...");
+            var file = args.File;
+            await using var stream = file.OpenReadStream(MaxXlsxFileBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            var workbook = FmdSmtWorkbookReader.Read(buffer);
+            var config = FmdSmtWorkbookImportParser.ReadConfig(workbook);
+            PendingPackage = FmdSmtWorkbookImportParser.Parse(
+                workbook,
+                new FmdSmtImportOptions(
+                    "Base FMD SMT",
+                    FiscalQuarter: SelectedFiscalQuarter,
+                    FiscalYear: SelectedFiscalYear));
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var service = new ExcelCapacityImportService(db);
+            Preview = await service.PreviewAsync(PendingPackage);
+            Comparison = null;
+            DatabaseSnapshot = null;
+            SelectedCsvCount = 0;
+            SelectedFmdFileName = file.Name;
+            ImportState = "Preview FMD SMT";
+            PreviewLabel = $"FMD SMT: {file.Name}";
+            StatusClass = Preview.Warnings.Count == 0 ? "alert-success" : "alert-warning";
+            StatusMessage = config.HasFiscalCalendar
+                ? $"Preview FMD SMT generado correctamente. CONFIG detectado: Q{config.FiscalQuarter} {config.FiscalYear}."
+                : $"Preview FMD SMT generado correctamente. No se encontro CONFIG; se uso el respaldo manual: {FiscalQuarterSummary}";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo leer el FMD SMT: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private async Task ApplyPendingPackageAsync()
+    {
+        if (PendingPackage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            StartBusy("Guardando importacion en base de datos...");
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var service = new ExcelCapacityImportService(db);
+            Preview = await service.ApplyAsync(PendingPackage);
+            DatabaseSnapshot = await LoadDatabaseSnapshotAsync(db, "despues de guardar");
+            Comparison = null;
+            LastImportedFileCount = SelectedCsvCount;
+            LastImportedSourceLabel = SelectedFmdFileName;
+            ClearSelectedFiles();
+            ImportState = "Importado";
+            PreviewLabel = LastImportedSourceLabel is not null
+                ? $"FMD SMT guardado: {LastImportedSourceLabel}"
+                : LastImportedFileCount == 0
+                    ? "ultima importacion guardada"
+                    : $"{LastImportedFileCount} archivo(s) guardados";
+            StatusClass = "alert-success";
+            StatusMessage = $"Importacion guardada correctamente. La seleccion de archivos fue limpiada y los conteos quedaron actualizados, incluyendo {DatabaseSnapshot.SmtFamilyCount} familia(s) SMT en catalogo.";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo guardar la importacion: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private async Task ComparePlanUabuAsync()
+    {
+        try
+        {
+            StartBusy("Comparando contra PLAN UABU...");
+            Comparison = await ParityService.ComparePlanUabuAsync();
+            ImportState = Comparison.IsPassing ? "Paridad OK" : "Diferencias";
+            StatusClass = Comparison.IsPassing ? "alert-success" : "alert-warning";
+            StatusMessage = Comparison.IsPassing
+                ? "La muestra PLAN UABU esta dentro de la tolerancia configurada."
+                : "La comparacion encontro diferencias o datos faltantes. Revisa la tabla de resultados.";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo comparar contra PLAN UABU: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private async Task PreviewSampleAsync()
+    {
+        try
+        {
+            StartBusy("Generando preview de muestra...");
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var service = new ExcelCapacityImportService(db);
+            PendingPackage = CreateSamplePackage();
+            Preview = await service.PreviewAsync(PendingPackage);
+            Comparison = null;
+            DatabaseSnapshot = null;
+            SelectedCsvCount = 0;
+            ImportState = "Preview";
+            PreviewLabel = "muestra interna";
+            StatusClass = "alert-success";
+            StatusMessage = "Preview generado sin guardar cambios.";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo generar la muestra: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private async Task ApplySampleAsync()
+    {
+        try
+        {
+            StartBusy("Aplicando muestra en base de datos...");
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var service = new ExcelCapacityImportService(db);
+            PendingPackage = CreateSamplePackage();
+            Preview = await service.ApplyAsync(PendingPackage);
+            DatabaseSnapshot = await LoadDatabaseSnapshotAsync(db, "despues de aplicar muestra");
+            Comparison = null;
+            ClearSelectedFiles();
+            ImportState = "Aplicado";
+            PreviewLabel = "muestra interna";
+            StatusClass = "alert-success";
+            StatusMessage = "Muestra aplicada. Incluye escenario, semana, producto, demanda, operaciones, rates y capacidad base.";
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo aplicar la muestra: {ex.Message}";
+        }
+        finally
+        {
+            StopBusy();
+        }
+    }
+
+    private static ExcelCapacityImportPackage CreateSamplePackage() => new(
+        Scenarios:
+        [
+            new ExcelScenarioImportRow("Base semanal", "Escenario base importado desde Excel", true)
+        ],
+        ProductionWeeks:
+        [
+            new ExcelProductionWeekImportRow("Base semanal", "WK13", null, 5.66m, 7.5m, 3, 0m, 0m, 0m)
+        ],
+        PartNumbers:
+        [
+            new ExcelPartNumberImportRow("68-103450", "Longball", "UABU", "Longball", 1m)
+        ],
+        WeeklyDemands:
+        [
+            new ExcelWeeklyDemandImportRow("Base semanal", "WK13", "68-103450", null, 1_000m)
+        ],
+        Operations:
+        [
+            new ExcelOperationImportRow("ASSY", "ASSY", "Assembly", 1),
+            new ExcelOperationImportRow("PACK", "PACK", "Packing", 2)
+        ],
+        OperationRates:
+        [
+            new ExcelOperationRateImportRow(null, "Longball", "ASSY", 73.8684m, 1m, 1m, 1m, null, null),
+            new ExcelOperationRateImportRow(null, "Longball", "PACK", 98.4924m, 1m, 1m, 1m, null, null)
+        ],
+        OperationCapacities:
+        [
+            new ExcelOperationCapacityImportRow("Base semanal", "WK13", "ASSY", 5.66m, 7.5m, 3, 2m, 0m, 0m, 0m),
+            new ExcelOperationCapacityImportRow("Base semanal", "WK13", "PACK", 5.66m, 7.5m, 3, 2m, 0m, 0m, 0m)
+        ],
+        CrossReferences:
+        [
+            new ExcelCrossReferenceImportRow("68-103450", "73_LEVEL", "73-103450")
+        ],
+        TestTimes: [],
+        ResourceTypes:
+        [
+            new ExcelResourceTypeImportRow("CHAMBER-GENERICO", "Chamber generico", "Chamber")
+        ],
+        ResourceConfigurations:
+        [
+            new ExcelResourceConfigurationImportRow("CHAMBER-GENERICO", "ASSY", "68-103450", null, 7m, "Capacidad base por rack/carro/accesorio")
+        ],
+        ResourceInventories:
+        [
+            new ExcelResourceInventoryImportRow("Base semanal", "WK13", "CHAMBER-GENERICO", 200, "Inventario inicial de ejemplo")
+        ],
+        SmtFamilyVolumes:
+        [
+            new ExcelSmtFamilyVolumeImportRow("Base semanal", "WK13", "UABU", "Longball", "AUG", 1, 4_000m, 1_000m)
+        ],
+        SmtFamilyRates:
+        [
+            new ExcelSmtFamilyRateImportRow("Longball", "ASSY", 48.736m, 1.5m, "68-103450", 48.736m, null, null, null)
+        ],
+        SmtLineFamilyRates: [],
+        SmtLineAssignments:
+        [
+            new ExcelSmtLineAssignmentImportRow("Base semanal", "WK13", "Longball", "ASSY", "SMT 1", 1, 1m, "AUG", 1)
+        ],
+        SmtCapacityTargets: [],
+        SourceWarnings: []);
+
+    private void ClearSelectedFiles()
+    {
+        PendingPackage = null;
+        SelectedCsvCount = 0;
+        SelectedFmdFileName = null;
+        FileInputKey = Guid.NewGuid();
+        FmdFileInputKey = Guid.NewGuid();
+    }
+
+    private void StartBusy(string message)
+    {
+        IsBusy = true;
+        BusyMessage = message;
+        ImportState = "Procesando";
+        StatusClass = "alert-info";
+        StatusMessage = message;
+        StateHasChanged();
+    }
+
+    private void StopBusy()
+    {
+        IsBusy = false;
+    }
+
+    private static bool HasSmtImpact(ExcelCapacityImportPreview preview) =>
+        preview.SmtImpact.NewFamilies.Count > 0 ||
+        preview.SmtImpact.ExistingFamilies.Count > 0 ||
+        preview.SmtImpact.FamilyRateReplacements.Count > 0 ||
+        preview.SmtImpact.IncompleteItems.Count > 0;
+
+    private static async Task<ImportDatabaseSnapshot> LoadDatabaseSnapshotAsync(PlanningDbContext db, string label) => new(
+        label,
+        await db.Scenarios.CountAsync(),
+        await db.ProductionWeeks.CountAsync(),
+        await db.PartNumbers.CountAsync(),
+        await db.WeeklyDemand.CountAsync(),
+        await db.Operations.CountAsync(),
+        await db.OperationRates.CountAsync(),
+        await db.OperationWeeklyCapacities.CountAsync(),
+        await db.PartCrossReferences.CountAsync(),
+        await db.TestTimeDefinitions.CountAsync(),
+        await db.ResourceTypes.CountAsync(),
+        await db.ResourceConfigurations.CountAsync(),
+        await db.ResourceInventories.CountAsync(),
+        await db.SmtFamilies.CountAsync(),
+        await db.SmtFamilyVolumes.CountAsync(),
+        await db.SmtFamilyRates.CountAsync(),
+        await db.SmtLineFamilyRates.CountAsync(),
+        await db.SmtLineAssignments.CountAsync(),
+        await db.SmtCapacityTargets.CountAsync());
+
+    private sealed record ImportDatabaseSnapshot(
+        string Label,
+        int ScenarioCount,
+        int ProductionWeekCount,
+        int PartNumberCount,
+        int WeeklyDemandCount,
+        int OperationCount,
+        int OperationRateCount,
+        int OperationCapacityCount,
+        int CrossReferenceCount,
+        int TestTimeCount,
+        int ResourceTypeCount,
+        int ResourceConfigurationCount,
+        int ResourceInventoryCount,
+        int SmtFamilyCount,
+        int SmtFamilyVolumeCount,
+        int SmtFamilyRateCount,
+        int SmtLineFamilyRateCount,
+        int SmtLineAssignmentCount,
+        int SmtCapacityTargetCount);
+
+    private sealed record ImportTemplateDownload(string FileName, string Description, bool IsAdvanced = false);
+}

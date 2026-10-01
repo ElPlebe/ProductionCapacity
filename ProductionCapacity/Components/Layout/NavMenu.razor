@@ -1,0 +1,52 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Capacity Planner</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Summary
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="catalogos">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Catalogos
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="matriz">
+                <span class="bi bi-table-nav-menu" aria-hidden="true"></span> Matriz Excel
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="dashboard">
+                <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="capacidad-smt">
+                <span class="bi bi-table-nav-menu" aria-hidden="true"></span> Capacidad SMT
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="administracion-smt">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Admin SMT
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="diagnostico-smt">
+                <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span> Diagnostico SMT
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="importar-excel">
+                <span class="bi bi-upload-nav-menu" aria-hidden="true"></span> Importar Excel
+            </NavLink>
+        </div>
+    </nav>
+</div>

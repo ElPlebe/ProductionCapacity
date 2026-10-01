@@ -1,0 +1,983 @@
+@page "/administracion-smt"
+@rendermode InteractiveServer
+@inject SmtAdministrationService SmtService
+
+<PageTitle>Administracion SMT</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">SMT</p>
+            <h1>Administracion SMT</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Registros SMT</span>
+            <strong>@TotalRecords.ToString("N0")</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @StatusClass" role="alert">@StatusMessage</div>
+    }
+
+    @if (IsLoading)
+    {
+        <div class="panel">Cargando administracion SMT...</div>
+    }
+    else if (Snapshot is null)
+    {
+        <div class="alert alert-danger">No pude cargar la administracion SMT.</div>
+    }
+    else
+    {
+        <div class="catalog-tabs">
+            @foreach (var tab in Tabs)
+            {
+                <button class="@GetTabClass(tab.Key)" type="button" @onclick="() => ActiveTab = tab.Key">
+                    @tab.Label
+                </button>
+            }
+        </div>
+
+        @switch (ActiveTab)
+        {
+            case "families":
+                @FamilySection()
+                break;
+            case "family-rates":
+                @FamilyRateSection()
+                break;
+            case "line-rates":
+                @LineRateSection()
+                break;
+            case "line-assignments":
+                @LineAssignmentSection()
+                break;
+            case "calendar":
+                @OperationCapacitySection()
+                break;
+            case "targets":
+                @CapacityTargetSection()
+                break;
+            case "audit":
+                @AuditSection()
+                break;
+        }
+    }
+</section>
+
+@code {
+    private static readonly (string Key, string Label)[] Tabs =
+    [
+        ("families", "Familias SMT"),
+        ("family-rates", "UPH por familia"),
+        ("line-rates", "UPH por linea"),
+        ("line-assignments", "Distribucion por linea"),
+        ("calendar", "Calendario SMT"),
+        ("targets", "Targets Capacity SMT"),
+        ("audit", "Historial SMT")
+    ];
+
+    private bool IsLoading { get; set; } = true;
+    private string ActiveTab { get; set; } = "families";
+    private SmtAdministrationSnapshot? Snapshot { get; set; }
+    private string? StatusMessage { get; set; }
+    private string StatusClass { get; set; } = "alert-success";
+    private SmtFamilyCatalogItem FamilyForm { get; set; } = NewFamily();
+    private SmtFamilyRateCatalogItem FamilyRateForm { get; set; } = NewFamilyRate();
+    private SmtLineFamilyRateCatalogItem LineRateForm { get; set; } = NewLineRate();
+    private SmtLineAssignmentCatalogItem LineAssignmentForm { get; set; } = NewLineAssignment();
+    private SmtOperationCapacityCatalogItem OperationCapacityForm { get; set; } = NewOperationCapacity();
+    private SmtCapacityTargetCatalogItem CapacityTargetForm { get; set; } = NewCapacityTarget();
+    private string FamilySearchText { get; set; } = string.Empty;
+    private string FamilyRateSearchText { get; set; } = string.Empty;
+    private string LineRateSearchText { get; set; } = string.Empty;
+    private string LineAssignmentSearchText { get; set; } = string.Empty;
+    private string OperationCapacitySearchText { get; set; } = string.Empty;
+    private string CapacityTargetSearchText { get; set; } = string.Empty;
+    private string AuditSearchText { get; set; } = string.Empty;
+    private SmtFamilyCatalogSortColumn FamilySortColumn { get; set; } = SmtFamilyCatalogSortColumn.ProductFamily;
+    private SmtFamilyRateCatalogSortColumn FamilyRateSortColumn { get; set; } = SmtFamilyRateCatalogSortColumn.ProductFamily;
+    private SmtLineFamilyRateCatalogSortColumn LineRateSortColumn { get; set; } = SmtLineFamilyRateCatalogSortColumn.ProductFamily;
+    private SmtLineAssignmentCatalogSortColumn LineAssignmentSortColumn { get; set; } = SmtLineAssignmentCatalogSortColumn.ProductFamily;
+    private SmtOperationCapacityCatalogSortColumn OperationCapacitySortColumn { get; set; } = SmtOperationCapacityCatalogSortColumn.WeekName;
+    private SmtCapacityTargetCatalogSortColumn CapacityTargetSortColumn { get; set; } = SmtCapacityTargetCatalogSortColumn.ProductFamily;
+    private SmtAuditLogSortColumn AuditSortColumn { get; set; } = SmtAuditLogSortColumn.CreatedAtUtc;
+    private bool FamilySortDescending { get; set; }
+    private bool FamilyRateSortDescending { get; set; }
+    private bool LineRateSortDescending { get; set; }
+    private bool LineAssignmentSortDescending { get; set; }
+    private bool OperationCapacitySortDescending { get; set; }
+    private bool CapacityTargetSortDescending { get; set; }
+    private bool AuditSortDescending { get; set; } = true;
+
+    private int TotalRecords => Snapshot is null
+        ? 0
+        : Snapshot.Families.Count + Snapshot.FamilyRates.Count + Snapshot.LineFamilyRates.Count + Snapshot.LineAssignments.Count + Snapshot.OperationCapacities.Count + Snapshot.CapacityTargets.Count;
+    private IReadOnlyList<SmtFamilyCatalogItem> FilteredFamilies => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyFamilies(Snapshot.Families, FamilySearchText, FamilySortColumn, FamilySortDescending);
+    private IReadOnlyList<SmtFamilyRateCatalogItem> FilteredFamilyRates => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyFamilyRates(Snapshot.FamilyRates, FamilyRateSearchText, FamilyRateSortColumn, FamilyRateSortDescending);
+    private IReadOnlyList<SmtLineFamilyRateCatalogItem> FilteredLineRates => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyLineRates(Snapshot.LineFamilyRates, LineRateSearchText, LineRateSortColumn, LineRateSortDescending);
+    private IReadOnlyList<SmtLineAssignmentCatalogItem> FilteredLineAssignments => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyLineAssignments(Snapshot.LineAssignments, LineAssignmentSearchText, LineAssignmentSortColumn, LineAssignmentSortDescending);
+    private IReadOnlyList<SmtOperationCapacityCatalogItem> FilteredOperationCapacities => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyOperationCapacities(Snapshot.OperationCapacities, OperationCapacitySearchText, OperationCapacitySortColumn, OperationCapacitySortDescending);
+    private IReadOnlyList<SmtCapacityTargetCatalogItem> FilteredCapacityTargets => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyCapacityTargets(Snapshot.CapacityTargets, CapacityTargetSearchText, CapacityTargetSortColumn, CapacityTargetSortDescending);
+    private IReadOnlyList<SmtAuditLogItem> FilteredAuditLogs => Snapshot is null
+        ? []
+        : SmtAdministrationTableQuery.ApplyAuditLogs(Snapshot.AuditLogs, AuditSearchText, AuditSortColumn, AuditSortDescending);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadSnapshotAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No pude cargar Administracion SMT. Verifica que el script 010 este aplicado en SQL Server: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadSnapshotAsync()
+    {
+        Snapshot = await SmtService.GetSnapshotAsync();
+        EnsureDefaults();
+    }
+
+    private void EnsureDefaults()
+    {
+        if (Snapshot is null)
+        {
+            return;
+        }
+
+        if (FamilyRateForm.OperationId == 0)
+        {
+            FamilyRateForm.OperationId = DefaultOperationId();
+        }
+
+        if (LineRateForm.OperationId == 0)
+        {
+            LineRateForm.OperationId = DefaultOperationId();
+        }
+
+        if (LineAssignmentForm.ScenarioId == 0)
+        {
+            LineAssignmentForm.ScenarioId = DefaultScenarioId();
+        }
+
+        if (LineAssignmentForm.ProductionWeekId == 0)
+        {
+            LineAssignmentForm.ProductionWeekId = DefaultWeekId(LineAssignmentForm.ScenarioId);
+        }
+
+        if (LineAssignmentForm.OperationId == 0)
+        {
+            LineAssignmentForm.OperationId = DefaultOperationId();
+        }
+
+        if (OperationCapacityForm.ScenarioId == 0)
+        {
+            OperationCapacityForm.ScenarioId = DefaultScenarioId();
+        }
+
+        if (OperationCapacityForm.ProductionWeekId == 0)
+        {
+            OperationCapacityForm.ProductionWeekId = DefaultWeekId(OperationCapacityForm.ScenarioId);
+        }
+
+        if (OperationCapacityForm.OperationId == 0)
+        {
+            OperationCapacityForm.OperationId = DefaultOperationId();
+        }
+
+        if (CapacityTargetForm.ScenarioId == 0)
+        {
+            CapacityTargetForm.ScenarioId = DefaultScenarioId();
+        }
+
+        if (CapacityTargetForm.ProductionWeekId == 0)
+        {
+            CapacityTargetForm.ProductionWeekId = DefaultWeekId(CapacityTargetForm.ScenarioId);
+        }
+
+        if (CapacityTargetForm.OperationId == 0)
+        {
+            CapacityTargetForm.OperationId = DefaultOperationId();
+        }
+
+        if (string.IsNullOrWhiteSpace(FamilyRateForm.ProductFamily))
+        {
+            FamilyRateForm.ProductFamily = DefaultFamily();
+        }
+
+        if (string.IsNullOrWhiteSpace(LineRateForm.ProductFamily))
+        {
+            LineRateForm.ProductFamily = DefaultFamily();
+        }
+
+        if (string.IsNullOrWhiteSpace(LineAssignmentForm.ProductFamily))
+        {
+            LineAssignmentForm.ProductFamily = DefaultFamily();
+        }
+
+        if (string.IsNullOrWhiteSpace(CapacityTargetForm.ProductFamily))
+        {
+            CapacityTargetForm.ProductFamily = DefaultFamily();
+        }
+    }
+
+    private RenderFragment FamilySection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Familias SMT</h2>
+            <span>@FilteredFamilies.Count de @Snapshot!.Families.Count registros</span>
+        </div>
+        <p class="muted-cell">Da de alta familias como AZTECA o BLACK BOLT. Los numeros de parte pueden seguir viviendo en Productos, pero SMT se planea por familia.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="FamilySearchText" /></label>
+        </div>
+        <EditForm Model="FamilyForm" OnValidSubmit="SaveFamilyAsync">
+            <div class="catalog-form">
+                <label><span>Familia</span><InputText class="form-control" @bind-Value="FamilyForm.ProductFamily" /></label>
+                <label><span>BU</span><InputText class="form-control" @bind-Value="FamilyForm.BusinessUnit" /></label>
+                <label><span>Notas</span><InputText class="form-control" @bind-Value="FamilyForm.Notes" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="FamilyForm.IsActive" /> Activa</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetFamily">Nuevo</button>
+                    @if (FamilyForm.SmtFamilyId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetFamily">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableFamilyHeader("Familia", SmtFamilyCatalogSortColumn.ProductFamily)</th><th>@SortableFamilyHeader("BU", SmtFamilyCatalogSortColumn.BusinessUnit)</th><th>@SortableFamilyHeader("Numeros de parte", SmtFamilyCatalogSortColumn.PartNumberCount)</th><th>@SortableFamilyHeader("Estado", SmtFamilyCatalogSortColumn.IsActive)</th><th>Notas</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredFamilies)
+                    {
+                        <tr>
+                            <td>@item.ProductFamily</td>
+                            <td>@(item.BusinessUnit ?? "-")</td>
+                            <td class="number-cell">@item.PartNumberCount.ToString("N0")</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td>@item.Notes</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditFamily(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment FamilyRateSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>UPH por familia</h2>
+            <span>@FilteredFamilyRates.Count de @Snapshot!.FamilyRates.Count registros</span>
+        </div>
+        <p class="muted-cell">Captura el UPH base y cambios de modelo para cada familia SMT. Si hay un valor distinto por linea, se captura en UPH por linea.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="FamilyRateSearchText" /></label>
+        </div>
+        <EditForm Model="FamilyRateForm" OnValidSubmit="SaveFamilyRateAsync">
+            <div class="catalog-form">
+                @FamilySelect("Familia", FamilyRateForm.ProductFamily, value => FamilyRateForm.ProductFamily = value)
+                @OperationSelect(FamilyRateForm.OperationId, value => FamilyRateForm.OperationId = value)
+                <label><span>UPH</span><DecimalInput Value="FamilyRateForm.UnitsPerHour" ValueChanged="value => FamilyRateForm.UnitsPerHour = value ?? 0m" /></label>
+                <label><span>Cambios de modelo</span><DecimalInput Value="FamilyRateForm.ChangeoverCount" ValueChanged="value => FamilyRateForm.ChangeoverCount = value ?? 0m" /></label>
+                <label><span>Parte fuente</span><InputText class="form-control" @bind-Value="FamilyRateForm.SourcePartNumber" /></label>
+                <label><span>Bottleneck UPH</span><DecimalInput Value="FamilyRateForm.BottleneckUnitsPerHour" ValueChanged="value => FamilyRateForm.BottleneckUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Router UPH</span><DecimalInput Value="FamilyRateForm.RouterUnitsPerHour" ValueChanged="value => FamilyRateForm.RouterUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Wave UPH</span><DecimalInput Value="FamilyRateForm.WaveUnitsPerHour" ValueChanged="value => FamilyRateForm.WaveUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Pressfit UPH</span><DecimalInput Value="FamilyRateForm.PressfitUnitsPerHour" ValueChanged="value => FamilyRateForm.PressfitUnitsPerHour = value" AllowNull="true" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="FamilyRateForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetFamilyRate">Nuevo</button>
+                    @if (FamilyRateForm.SmtFamilyRateId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetFamilyRate">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableFamilyRateHeader("Familia", SmtFamilyRateCatalogSortColumn.ProductFamily)</th><th>@SortableFamilyRateHeader("Operacion", SmtFamilyRateCatalogSortColumn.OperationCode)</th><th>@SortableFamilyRateHeader("UPH", SmtFamilyRateCatalogSortColumn.UnitsPerHour)</th><th>@SortableFamilyRateHeader("CO", SmtFamilyRateCatalogSortColumn.ChangeoverCount)</th><th>@SortableFamilyRateHeader("Parte fuente", SmtFamilyRateCatalogSortColumn.SourcePartNumber)</th><th>Bottleneck</th><th>Router</th><th>Wave</th><th>Pressfit</th><th>@SortableFamilyRateHeader("Estado", SmtFamilyRateCatalogSortColumn.IsActive)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredFamilyRates)
+                    {
+                        <tr>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.OperationCode</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.UnitsPerHour, decimals: 2)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.ChangeoverCount, decimals: 0)</td>
+                            <td>@(item.SourcePartNumber ?? "-")</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.BottleneckUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.RouterUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.WaveUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.PressfitUnitsPerHour)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditFamilyRate(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment LineRateSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>UPH por linea SMT</h2>
+            <span>@FilteredLineRates.Count de @Snapshot!.LineFamilyRates.Count registros</span>
+        </div>
+        <p class="muted-cell">Usa esta seccion solo cuando una familia tiene UPH distinto en una linea especifica.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="LineRateSearchText" /></label>
+        </div>
+        <EditForm Model="LineRateForm" OnValidSubmit="SaveLineRateAsync">
+            <div class="catalog-form">
+                @FamilySelect("Familia", LineRateForm.ProductFamily, value => LineRateForm.ProductFamily = value)
+                @OperationSelect(LineRateForm.OperationId, value => LineRateForm.OperationId = value)
+                <label><span>Linea SMT</span><InputText class="form-control" @bind-Value="LineRateForm.LineCode" /></label>
+                <label><span>Numero linea</span><InputNumber class="form-control" @bind-Value="LineRateForm.LineNumber" /></label>
+                <label><span>UPH linea</span><DecimalInput Value="LineRateForm.UnitsPerHour" ValueChanged="value => LineRateForm.UnitsPerHour = value ?? 0m" /></label>
+                <label><span>Parte fuente</span><InputText class="form-control" @bind-Value="LineRateForm.SourcePartNumber" /></label>
+                <label><span>Bottleneck UPH</span><DecimalInput Value="LineRateForm.BottleneckUnitsPerHour" ValueChanged="value => LineRateForm.BottleneckUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Router UPH</span><DecimalInput Value="LineRateForm.RouterUnitsPerHour" ValueChanged="value => LineRateForm.RouterUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Wave UPH</span><DecimalInput Value="LineRateForm.WaveUnitsPerHour" ValueChanged="value => LineRateForm.WaveUnitsPerHour = value" AllowNull="true" /></label>
+                <label><span>Pressfit UPH</span><DecimalInput Value="LineRateForm.PressfitUnitsPerHour" ValueChanged="value => LineRateForm.PressfitUnitsPerHour = value" AllowNull="true" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="LineRateForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetLineRate">Nuevo</button>
+                    @if (LineRateForm.SmtLineFamilyRateId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetLineRate">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableLineRateHeader("Familia", SmtLineFamilyRateCatalogSortColumn.ProductFamily)</th><th>@SortableLineRateHeader("Operacion", SmtLineFamilyRateCatalogSortColumn.OperationCode)</th><th>@SortableLineRateHeader("Linea", SmtLineFamilyRateCatalogSortColumn.LineCode)</th><th>@SortableLineRateHeader("No.", SmtLineFamilyRateCatalogSortColumn.LineNumber)</th><th>@SortableLineRateHeader("UPH", SmtLineFamilyRateCatalogSortColumn.UnitsPerHour)</th><th>@SortableLineRateHeader("Parte fuente", SmtLineFamilyRateCatalogSortColumn.SourcePartNumber)</th><th>Bottleneck</th><th>Router</th><th>Wave</th><th>Pressfit</th><th>@SortableLineRateHeader("Estado", SmtLineFamilyRateCatalogSortColumn.IsActive)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredLineRates)
+                    {
+                        <tr>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.OperationCode</td>
+                            <td>@item.LineCode</td>
+                            <td class="number-cell">@item.LineNumber</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.UnitsPerHour, decimals: 2)</td>
+                            <td>@(item.SourcePartNumber ?? "-")</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.BottleneckUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.RouterUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.WaveUnitsPerHour)</td>
+                            <td class="number-cell">@DecimalRounding.FormatOptionalUp(item.PressfitUnitsPerHour)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditLineRate(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment LineAssignmentSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Distribucion por linea</h2>
+            <span>@FilteredLineAssignments.Count de @Snapshot!.LineAssignments.Count registros</span>
+        </div>
+        <p class="muted-cell">Captura que porcentaje de cada familia corre en cada linea SMT. Usa 100 para 100%, 50 para 50%, etc.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="LineAssignmentSearchText" /></label>
+        </div>
+        <EditForm Model="LineAssignmentForm" OnValidSubmit="SaveLineAssignmentAsync">
+            <div class="catalog-form">
+                @ScenarioSelect(LineAssignmentForm.ScenarioId, SetLineAssignmentScenario)
+                @WeekSelect(LineAssignmentForm.ProductionWeekId, LineAssignmentForm.ScenarioId, value => LineAssignmentForm.ProductionWeekId = value)
+                @OperationSelect(LineAssignmentForm.OperationId, value => LineAssignmentForm.OperationId = value)
+                @FamilySelect("Familia", LineAssignmentForm.ProductFamily, value => LineAssignmentForm.ProductFamily = value)
+                <label><span>Linea SMT</span><InputText class="form-control" @bind-Value="LineAssignmentForm.LineCode" /></label>
+                <label><span>Numero linea</span><InputNumber class="form-control" @bind-Value="LineAssignmentForm.LineNumber" /></label>
+                <label><span>Distribucion %</span><DecimalInput Value="LineAssignmentForm.LineDistributionPercent" ValueChanged="value => LineAssignmentForm.LineDistributionPercent = value ?? 0m" /></label>
+                <label><span>Mes</span><InputText class="form-control" @bind-Value="LineAssignmentForm.MonthName" /></label>
+                <label><span>Secuencia mes</span><InputNumber class="form-control" @bind-Value="LineAssignmentForm.MonthSequence" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="LineAssignmentForm.IsActive" /> Activa</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetLineAssignment">Nuevo</button>
+                    @if (LineAssignmentForm.SmtLineAssignmentId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetLineAssignment">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableLineAssignmentHeader("Escenario", SmtLineAssignmentCatalogSortColumn.ScenarioName)</th><th>@SortableLineAssignmentHeader("Mes/Semana", SmtLineAssignmentCatalogSortColumn.WeekName)</th><th>@SortableLineAssignmentHeader("Operacion", SmtLineAssignmentCatalogSortColumn.OperationCode)</th><th>@SortableLineAssignmentHeader("Familia", SmtLineAssignmentCatalogSortColumn.ProductFamily)</th><th>@SortableLineAssignmentHeader("Linea", SmtLineAssignmentCatalogSortColumn.LineCode)</th><th>@SortableLineAssignmentHeader("No.", SmtLineAssignmentCatalogSortColumn.LineNumber)</th><th>@SortableLineAssignmentHeader("Distribucion", SmtLineAssignmentCatalogSortColumn.LineDistributionPercent)</th><th>@SortableLineAssignmentHeader("Estado", SmtLineAssignmentCatalogSortColumn.IsActive)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredLineAssignments)
+                    {
+                        <tr>
+                            <td>@item.ScenarioName</td>
+                            <td>@item.WeekName</td>
+                            <td>@item.OperationCode</td>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.LineCode</td>
+                            <td class="number-cell">@item.LineNumber</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.LineDistributionPercent, "%", decimals: 0)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditLineAssignment(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment OperationCapacitySection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Calendario SMT</h2>
+            <span>@FilteredOperationCapacities.Count de @Snapshot!.OperationCapacities.Count registros</span>
+        </div>
+        <p class="muted-cell">Define los dias, turnos, horas, festivos, overtime y paro planeado que alimentan la capacidad mensual SMT.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="OperationCapacitySearchText" /></label>
+        </div>
+        <EditForm Model="OperationCapacityForm" OnValidSubmit="SaveOperationCapacityAsync">
+            <div class="catalog-form">
+                @ScenarioSelect(OperationCapacityForm.ScenarioId, SetOperationCapacityScenario)
+                @WeekSelect(OperationCapacityForm.ProductionWeekId, OperationCapacityForm.ScenarioId, value => OperationCapacityForm.ProductionWeekId = value)
+                @OperationSelect(OperationCapacityForm.OperationId, value => OperationCapacityForm.OperationId = value)
+                <label><span>Dias por semana</span><DecimalInput Value="OperationCapacityForm.WorkDays" ValueChanged="value => OperationCapacityForm.WorkDays = value ?? 0m" /></label>
+                <label><span>Horas por turno</span><DecimalInput Value="OperationCapacityForm.HoursPerShift" ValueChanged="value => OperationCapacityForm.HoursPerShift = value ?? 0m" /></label>
+                <label><span>Turnos por dia</span><InputNumber class="form-control" @bind-Value="OperationCapacityForm.ShiftsPerDay" /></label>
+                <label><span>Lineas/equipos</span><DecimalInput Value="OperationCapacityForm.EquipmentQuantity" ValueChanged="value => OperationCapacityForm.EquipmentQuantity = value ?? 1m" /></label>
+                <label><span>Dias festivos</span><DecimalInput Value="OperationCapacityForm.HolidayDays" ValueChanged="value => OperationCapacityForm.HolidayDays = value ?? 0m" /></label>
+                <label><span>Overtime horas</span><DecimalInput Value="OperationCapacityForm.OvertimeHours" ValueChanged="value => OperationCapacityForm.OvertimeHours = value ?? 0m" /></label>
+                <label><span>Paro planeado</span><DecimalInput Value="OperationCapacityForm.PlannedDowntimeHours" ValueChanged="value => OperationCapacityForm.PlannedDowntimeHours = value ?? 0m" /></label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetOperationCapacity">Nuevo</button>
+                    @if (OperationCapacityForm.OperationWeeklyCapacityId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetOperationCapacity">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableOperationCapacityHeader("Escenario", SmtOperationCapacityCatalogSortColumn.ScenarioName)</th><th>@SortableOperationCapacityHeader("Mes/Semana", SmtOperationCapacityCatalogSortColumn.WeekName)</th><th>@SortableOperationCapacityHeader("Operacion", SmtOperationCapacityCatalogSortColumn.OperationCode)</th><th>@SortableOperationCapacityHeader("Dias", SmtOperationCapacityCatalogSortColumn.WorkDays)</th><th>@SortableOperationCapacityHeader("Hrs/turno", SmtOperationCapacityCatalogSortColumn.HoursPerShift)</th><th>@SortableOperationCapacityHeader("Turnos", SmtOperationCapacityCatalogSortColumn.ShiftsPerDay)</th><th>@SortableOperationCapacityHeader("Equipos", SmtOperationCapacityCatalogSortColumn.EquipmentQuantity)</th><th>@SortableOperationCapacityHeader("Festivos", SmtOperationCapacityCatalogSortColumn.HolidayDays)</th><th>@SortableOperationCapacityHeader("OT", SmtOperationCapacityCatalogSortColumn.OvertimeHours)</th><th>@SortableOperationCapacityHeader("Paro", SmtOperationCapacityCatalogSortColumn.PlannedDowntimeHours)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredOperationCapacities)
+                    {
+                        <tr>
+                            <td>@item.ScenarioName</td>
+                            <td>@item.WeekName</td>
+                            <td>@item.OperationCode</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.WorkDays, decimals: 2)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.HoursPerShift, decimals: 2)</td>
+                            <td class="number-cell">@item.ShiftsPerDay</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.EquipmentQuantity, decimals: 0)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.HolidayDays, decimals: 2)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.OvertimeHours, decimals: 2)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.PlannedDowntimeHours, decimals: 2)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditOperationCapacity(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment CapacityTargetSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Targets Capacity SMT</h2>
+            <span>@FilteredCapacityTargets.Count de @Snapshot!.CapacityTargets.Count registros</span>
+        </div>
+        <p class="muted-cell">Captura los valores esperados del Excel Capacity SMT para comparar el sistema 1:1: MPS asignado, capacidad maxima, utilizacion y delta.</p>
+        <div class="control-grid">
+            <label><span>Buscar en catalogo</span><InputText class="form-control" @bind-Value="CapacityTargetSearchText" /></label>
+        </div>
+        <EditForm Model="CapacityTargetForm" OnValidSubmit="SaveCapacityTargetAsync">
+            <div class="catalog-form">
+                @ScenarioSelect(CapacityTargetForm.ScenarioId, SetCapacityTargetScenario)
+                @WeekSelect(CapacityTargetForm.ProductionWeekId, CapacityTargetForm.ScenarioId, value => CapacityTargetForm.ProductionWeekId = value)
+                @OperationSelect(CapacityTargetForm.OperationId, value => CapacityTargetForm.OperationId = value)
+                @FamilySelect("Familia", CapacityTargetForm.ProductFamily, value => CapacityTargetForm.ProductFamily = value)
+                <label><span>Linea SMT</span><InputText class="form-control" @bind-Value="CapacityTargetForm.LineCode" /></label>
+                <label><span>MPS asignado</span><DecimalInput Value="CapacityTargetForm.ExpectedAssignedDemandUnits" ValueChanged="value => CapacityTargetForm.ExpectedAssignedDemandUnits = value ?? 0m" /></label>
+                <label><span>Capacidad max</span><DecimalInput Value="CapacityTargetForm.ExpectedMaxCapacityUnits" ValueChanged="value => CapacityTargetForm.ExpectedMaxCapacityUnits = value ?? 0m" /></label>
+                <label><span>Utilizacion %</span><DecimalInput Value="CapacityTargetForm.ExpectedUtilizationPercent" ValueChanged="value => CapacityTargetForm.ExpectedUtilizationPercent = value ?? 0m" /></label>
+                <label><span>Delta capacidad</span><DecimalInput Value="CapacityTargetForm.ExpectedDeltaCapacityUnits" ValueChanged="value => CapacityTargetForm.ExpectedDeltaCapacityUnits = value ?? 0m" /></label>
+                <label><span>Referencia Excel</span><InputText class="form-control" @bind-Value="CapacityTargetForm.SourceReference" /></label>
+                <label><span>Notas</span><InputText class="form-control" @bind-Value="CapacityTargetForm.Notes" /></label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetCapacityTarget">Nuevo</button>
+                    @if (CapacityTargetForm.SmtCapacityTargetId > 0)
+                    {
+                        <button class="btn btn-secondary" type="button" @onclick="ResetCapacityTarget">Cancelar edicion</button>
+                    }
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>@SortableCapacityTargetHeader("Escenario", SmtCapacityTargetCatalogSortColumn.ScenarioName)</th><th>@SortableCapacityTargetHeader("Mes/Semana", SmtCapacityTargetCatalogSortColumn.WeekName)</th><th>@SortableCapacityTargetHeader("Operacion", SmtCapacityTargetCatalogSortColumn.OperationCode)</th><th>@SortableCapacityTargetHeader("Familia", SmtCapacityTargetCatalogSortColumn.ProductFamily)</th><th>@SortableCapacityTargetHeader("Linea", SmtCapacityTargetCatalogSortColumn.LineCode)</th><th>@SortableCapacityTargetHeader("MPS", SmtCapacityTargetCatalogSortColumn.ExpectedAssignedDemandUnits)</th><th>@SortableCapacityTargetHeader("Capacidad", SmtCapacityTargetCatalogSortColumn.ExpectedMaxCapacityUnits)</th><th>@SortableCapacityTargetHeader("Utilizacion", SmtCapacityTargetCatalogSortColumn.ExpectedUtilizationPercent)</th><th>@SortableCapacityTargetHeader("Delta", SmtCapacityTargetCatalogSortColumn.ExpectedDeltaCapacityUnits)</th><th>@SortableCapacityTargetHeader("Referencia", SmtCapacityTargetCatalogSortColumn.SourceReference)</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in FilteredCapacityTargets)
+                    {
+                        <tr>
+                            <td>@item.ScenarioName</td>
+                            <td>@item.WeekName</td>
+                            <td>@item.OperationCode</td>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.LineCode</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.ExpectedAssignedDemandUnits, decimals: 0)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.ExpectedMaxCapacityUnits, decimals: 0)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.ExpectedUtilizationPercent, "%", decimals: 0)</td>
+                            <td class="number-cell">@DecimalRounding.FormatNatural(item.ExpectedDeltaCapacityUnits, decimals: 0)</td>
+                            <td>@(item.SourceReference ?? "-")</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditCapacityTarget(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment AuditSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Historial SMT</h2>
+            <span>@FilteredAuditLogs.Count de @Snapshot!.AuditLogs.Count cambios</span>
+        </div>
+        <p class="muted-cell">Consulta cambios recientes hechos desde Admin SMT o importaciones. Cuando agreguemos usuarios, esta misma tabla podra mostrar quien hizo cada ajuste.</p>
+        <div class="control-grid">
+            <label><span>Buscar en historial</span><InputText class="form-control" @bind-Value="AuditSearchText" /></label>
+        </div>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead>
+                    <tr>
+                        <th>@SortableAuditHeader("Fecha UTC", SmtAuditLogSortColumn.CreatedAtUtc)</th>
+                        <th>@SortableAuditHeader("Origen", SmtAuditLogSortColumn.ChangedBy)</th>
+                        <th>@SortableAuditHeader("Accion", SmtAuditLogSortColumn.ActionType)</th>
+                        <th>@SortableAuditHeader("Entidad", SmtAuditLogSortColumn.EntityType)</th>
+                        <th>@SortableAuditHeader("Llave", SmtAuditLogSortColumn.EntityKey)</th>
+                        <th>Anterior</th>
+                        <th>Nuevo</th>
+                        <th>Notas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in FilteredAuditLogs)
+                    {
+                        <tr>
+                            <td>@item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@item.ChangedBy</td>
+                            <td>@item.ActionType</td>
+                            <td>@item.EntityType</td>
+                            <td>@item.EntityKey</td>
+                            <td>@(item.OldValue ?? "-")</td>
+                            <td>@(item.NewValue ?? "-")</td>
+                            <td>@(item.Notes ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment FamilySelect(string label, string selectedValue, Action<string> valueChanged) => @<label>
+        <span>@label</span>
+        <select class="form-control" value="@selectedValue" @onchange="args => valueChanged(Convert.ToString(args.Value) ?? string.Empty)">
+            @foreach (var item in Snapshot!.Families.Where(item => item.IsActive))
+            {
+                <option value="@item.ProductFamily">@item.ProductFamily</option>
+            }
+        </select>
+    </label>;
+
+    private RenderFragment OperationSelect(int selectedValue, Action<int> valueChanged) => @<label>
+        <span>Operacion</span>
+        <select class="form-control" value="@selectedValue" @onchange="args => valueChanged(ParseInt(args.Value))">
+            @foreach (var item in Snapshot!.Operations)
+            {
+                <option value="@item.OperationId">@item.OperationCode - @item.OperationName</option>
+            }
+        </select>
+    </label>;
+
+    private RenderFragment ScenarioSelect(int selectedValue, Action<int> valueChanged) => @<label>
+        <span>Escenario</span>
+        <select class="form-control" value="@selectedValue" @onchange="args => valueChanged(ParseInt(args.Value))">
+            @foreach (var item in Snapshot!.Scenarios)
+            {
+                <option value="@item.ScenarioId">@item.ScenarioName</option>
+            }
+        </select>
+    </label>;
+
+    private RenderFragment WeekSelect(int selectedValue, int scenarioId, Action<int> valueChanged) => @<label>
+        <span>Mes/Semana</span>
+        <select class="form-control" value="@selectedValue" @onchange="args => valueChanged(ParseInt(args.Value))">
+            @foreach (var item in Snapshot!.ProductionWeeks.Where(item => scenarioId == 0 || item.ScenarioId == scenarioId))
+            {
+                <option value="@item.ProductionWeekId">@item.WeekName</option>
+            }
+        </select>
+    </label>;
+
+    private RenderFragment SortableFamilyHeader(string label, SmtFamilyCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleFamilySort(column)">@label @FamilySortIndicator(column)</button>;
+    private RenderFragment SortableFamilyRateHeader(string label, SmtFamilyRateCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleFamilyRateSort(column)">@label @FamilyRateSortIndicator(column)</button>;
+    private RenderFragment SortableLineRateHeader(string label, SmtLineFamilyRateCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleLineRateSort(column)">@label @LineRateSortIndicator(column)</button>;
+    private RenderFragment SortableLineAssignmentHeader(string label, SmtLineAssignmentCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleLineAssignmentSort(column)">@label @LineAssignmentSortIndicator(column)</button>;
+    private RenderFragment SortableOperationCapacityHeader(string label, SmtOperationCapacityCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleOperationCapacitySort(column)">@label @OperationCapacitySortIndicator(column)</button>;
+    private RenderFragment SortableCapacityTargetHeader(string label, SmtCapacityTargetCatalogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleCapacityTargetSort(column)">@label @CapacityTargetSortIndicator(column)</button>;
+    private RenderFragment SortableAuditHeader(string label, SmtAuditLogSortColumn column) => @<button class="link-button table-sort" type="button" @onclick="() => ToggleAuditSort(column)">@label @AuditSortIndicator(column)</button>;
+
+    private async Task SaveFamilyAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveFamilyAsync(FamilyForm);
+        ResetFamily();
+    }, "Familia SMT guardada.");
+
+    private async Task SaveFamilyRateAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveFamilyRateAsync(FamilyRateForm);
+        ResetFamilyRate();
+    }, "UPH por familia guardado.");
+
+    private async Task SaveLineRateAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveLineFamilyRateAsync(LineRateForm);
+        ResetLineRate();
+    }, "UPH por linea guardado.");
+
+    private async Task SaveLineAssignmentAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveLineAssignmentAsync(LineAssignmentForm);
+        ResetLineAssignment();
+    }, "Distribucion por linea guardada.");
+
+    private async Task SaveOperationCapacityAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveOperationCapacityAsync(OperationCapacityForm);
+        ResetOperationCapacity();
+    }, "Calendario SMT guardado.");
+
+    private async Task SaveCapacityTargetAsync() => await SaveAsync(async () =>
+    {
+        await SmtService.SaveCapacityTargetAsync(CapacityTargetForm);
+        ResetCapacityTarget();
+    }, "Target Capacity SMT guardado.");
+
+    private async Task SaveAsync(Func<Task> saveAction, string successMessage)
+    {
+        try
+        {
+            await saveAction();
+            await LoadSnapshotAsync();
+            StatusClass = "alert-success";
+            StatusMessage = successMessage;
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo guardar: {ex.Message}";
+        }
+    }
+
+    private void EditFamily(SmtFamilyCatalogItem item) => FamilyForm = new()
+    {
+        SmtFamilyId = item.SmtFamilyId,
+        ProductFamily = item.ProductFamily,
+        BusinessUnit = item.BusinessUnit,
+        Notes = item.Notes,
+        IsActive = item.IsActive
+    };
+
+    private void EditFamilyRate(SmtFamilyRateCatalogItem item) => FamilyRateForm = new()
+    {
+        SmtFamilyRateId = item.SmtFamilyRateId,
+        ProductFamily = item.ProductFamily,
+        OperationId = item.OperationId,
+        UnitsPerHour = item.UnitsPerHour,
+        ChangeoverCount = item.ChangeoverCount,
+        SourcePartNumber = item.SourcePartNumber,
+        BottleneckUnitsPerHour = item.BottleneckUnitsPerHour,
+        RouterUnitsPerHour = item.RouterUnitsPerHour,
+        WaveUnitsPerHour = item.WaveUnitsPerHour,
+        PressfitUnitsPerHour = item.PressfitUnitsPerHour,
+        IsActive = item.IsActive
+    };
+
+    private void EditLineRate(SmtLineFamilyRateCatalogItem item) => LineRateForm = new()
+    {
+        SmtLineFamilyRateId = item.SmtLineFamilyRateId,
+        ProductFamily = item.ProductFamily,
+        OperationId = item.OperationId,
+        LineCode = item.LineCode,
+        LineNumber = item.LineNumber,
+        UnitsPerHour = item.UnitsPerHour,
+        SourcePartNumber = item.SourcePartNumber,
+        BottleneckUnitsPerHour = item.BottleneckUnitsPerHour,
+        RouterUnitsPerHour = item.RouterUnitsPerHour,
+        WaveUnitsPerHour = item.WaveUnitsPerHour,
+        PressfitUnitsPerHour = item.PressfitUnitsPerHour,
+        IsActive = item.IsActive
+    };
+
+    private void EditLineAssignment(SmtLineAssignmentCatalogItem item) => LineAssignmentForm = new()
+    {
+        SmtLineAssignmentId = item.SmtLineAssignmentId,
+        ScenarioId = item.ScenarioId,
+        ProductionWeekId = item.ProductionWeekId,
+        OperationId = item.OperationId,
+        ProductFamily = item.ProductFamily,
+        LineCode = item.LineCode,
+        LineNumber = item.LineNumber,
+        LineDistributionPercent = item.LineDistributionPercent,
+        MonthName = item.MonthName,
+        MonthSequence = item.MonthSequence,
+        IsActive = item.IsActive
+    };
+
+    private void EditOperationCapacity(SmtOperationCapacityCatalogItem item) => OperationCapacityForm = new()
+    {
+        OperationWeeklyCapacityId = item.OperationWeeklyCapacityId,
+        ScenarioId = item.ScenarioId,
+        ProductionWeekId = item.ProductionWeekId,
+        OperationId = item.OperationId,
+        WorkDays = item.WorkDays,
+        HoursPerShift = item.HoursPerShift,
+        ShiftsPerDay = item.ShiftsPerDay,
+        EquipmentQuantity = item.EquipmentQuantity,
+        HolidayDays = item.HolidayDays,
+        OvertimeHours = item.OvertimeHours,
+        PlannedDowntimeHours = item.PlannedDowntimeHours
+    };
+
+    private void EditCapacityTarget(SmtCapacityTargetCatalogItem item) => CapacityTargetForm = new()
+    {
+        SmtCapacityTargetId = item.SmtCapacityTargetId,
+        ScenarioId = item.ScenarioId,
+        ProductionWeekId = item.ProductionWeekId,
+        OperationId = item.OperationId,
+        ProductFamily = item.ProductFamily,
+        LineCode = item.LineCode,
+        ExpectedAssignedDemandUnits = item.ExpectedAssignedDemandUnits,
+        ExpectedMaxCapacityUnits = item.ExpectedMaxCapacityUnits,
+        ExpectedUtilizationPercent = item.ExpectedUtilizationPercent,
+        ExpectedDeltaCapacityUnits = item.ExpectedDeltaCapacityUnits,
+        SourceReference = item.SourceReference,
+        Notes = item.Notes
+    };
+
+    private void ResetFamily() => FamilyForm = NewFamily();
+    private void ResetFamilyRate() => FamilyRateForm = NewFamilyRate(Snapshot);
+    private void ResetLineRate() => LineRateForm = NewLineRate(Snapshot);
+    private void ResetLineAssignment() => LineAssignmentForm = NewLineAssignment(Snapshot);
+    private void ResetOperationCapacity() => OperationCapacityForm = NewOperationCapacity(Snapshot);
+    private void ResetCapacityTarget() => CapacityTargetForm = NewCapacityTarget(Snapshot);
+
+    private int DefaultOperationId() =>
+        Snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+        Snapshot?.Operations.FirstOrDefault()?.OperationId ??
+        0;
+
+    private string DefaultFamily() =>
+        Snapshot?.Families.FirstOrDefault(item => item.IsActive)?.ProductFamily ?? string.Empty;
+
+    private int DefaultScenarioId() =>
+        Snapshot?.Scenarios.FirstOrDefault()?.ScenarioId ?? 0;
+
+    private int DefaultWeekId(int scenarioId) =>
+        Snapshot?.ProductionWeeks.FirstOrDefault(item => scenarioId == 0 || item.ScenarioId == scenarioId)?.ProductionWeekId ?? 0;
+
+    private void SetLineAssignmentScenario(int scenarioId)
+    {
+        LineAssignmentForm.ScenarioId = scenarioId;
+        LineAssignmentForm.ProductionWeekId = DefaultWeekId(scenarioId);
+    }
+
+    private void SetOperationCapacityScenario(int scenarioId)
+    {
+        OperationCapacityForm.ScenarioId = scenarioId;
+        OperationCapacityForm.ProductionWeekId = DefaultWeekId(scenarioId);
+    }
+
+    private void SetCapacityTargetScenario(int scenarioId)
+    {
+        CapacityTargetForm.ScenarioId = scenarioId;
+        CapacityTargetForm.ProductionWeekId = DefaultWeekId(scenarioId);
+    }
+
+    private static SmtFamilyCatalogItem NewFamily() => new() { IsActive = true };
+
+    private static SmtFamilyRateCatalogItem NewFamilyRate(SmtAdministrationSnapshot? snapshot = null) => new()
+    {
+        ProductFamily = snapshot?.Families.FirstOrDefault(item => item.IsActive)?.ProductFamily ?? string.Empty,
+        OperationId = snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+            snapshot?.Operations.FirstOrDefault()?.OperationId ?? 0,
+        IsActive = true
+    };
+
+    private static SmtLineFamilyRateCatalogItem NewLineRate(SmtAdministrationSnapshot? snapshot = null) => new()
+    {
+        ProductFamily = snapshot?.Families.FirstOrDefault(item => item.IsActive)?.ProductFamily ?? string.Empty,
+        OperationId = snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+            snapshot?.Operations.FirstOrDefault()?.OperationId ?? 0,
+        LineCode = "SMT 1",
+        LineNumber = 1,
+        IsActive = true
+    };
+
+    private static SmtLineAssignmentCatalogItem NewLineAssignment(SmtAdministrationSnapshot? snapshot = null)
+    {
+        var scenarioId = snapshot?.Scenarios.FirstOrDefault()?.ScenarioId ?? 0;
+        return new()
+        {
+            ScenarioId = scenarioId,
+            ProductionWeekId = snapshot?.ProductionWeeks.FirstOrDefault(item => scenarioId == 0 || item.ScenarioId == scenarioId)?.ProductionWeekId ?? 0,
+            OperationId = snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+                snapshot?.Operations.FirstOrDefault()?.OperationId ?? 0,
+            ProductFamily = snapshot?.Families.FirstOrDefault(item => item.IsActive)?.ProductFamily ?? string.Empty,
+            LineCode = "SMT 1",
+            LineNumber = 1,
+            LineDistributionPercent = 100m,
+            MonthName = snapshot?.ProductionWeeks.FirstOrDefault(item => scenarioId == 0 || item.ScenarioId == scenarioId)?.WeekName,
+            MonthSequence = 1,
+            IsActive = true
+        };
+    }
+
+    private static SmtOperationCapacityCatalogItem NewOperationCapacity(SmtAdministrationSnapshot? snapshot = null)
+    {
+        var scenarioId = snapshot?.Scenarios.FirstOrDefault()?.ScenarioId ?? 0;
+        return new()
+        {
+            ScenarioId = scenarioId,
+            ProductionWeekId = snapshot?.ProductionWeeks.FirstOrDefault(item => scenarioId == 0 || item.ScenarioId == scenarioId)?.ProductionWeekId ?? 0,
+            OperationId = snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+                snapshot?.Operations.FirstOrDefault()?.OperationId ?? 0,
+            WorkDays = 5.66m,
+            HoursPerShift = 7.5m,
+            ShiftsPerDay = 3,
+            EquipmentQuantity = 6m
+        };
+    }
+
+    private static SmtCapacityTargetCatalogItem NewCapacityTarget(SmtAdministrationSnapshot? snapshot = null)
+    {
+        var scenarioId = snapshot?.Scenarios.FirstOrDefault()?.ScenarioId ?? 0;
+        return new()
+        {
+            ScenarioId = scenarioId,
+            ProductionWeekId = snapshot?.ProductionWeeks.FirstOrDefault(item => scenarioId == 0 || item.ScenarioId == scenarioId)?.ProductionWeekId ?? 0,
+            OperationId = snapshot?.Operations.FirstOrDefault(item => string.Equals(item.OperationCode, "SMT", StringComparison.OrdinalIgnoreCase))?.OperationId ??
+                snapshot?.Operations.FirstOrDefault()?.OperationId ?? 0,
+            ProductFamily = snapshot?.Families.FirstOrDefault(item => item.IsActive)?.ProductFamily ?? string.Empty,
+            LineCode = "SMT 1"
+        };
+    }
+
+    private string GetTabClass(string key) => key == ActiveTab ? "catalog-tab is-active" : "catalog-tab";
+    private static string FormatActive(bool isActive) => isActive ? "Activo" : "Inactivo";
+    private static int ParseInt(object? value) =>
+        int.TryParse(Convert.ToString(value), out var parsed) ? parsed : 0;
+
+    private void ToggleFamilySort(SmtFamilyCatalogSortColumn column)
+    {
+        FamilySortDescending = FamilySortColumn == column && !FamilySortDescending;
+        FamilySortColumn = column;
+    }
+
+    private void ToggleFamilyRateSort(SmtFamilyRateCatalogSortColumn column)
+    {
+        FamilyRateSortDescending = FamilyRateSortColumn == column && !FamilyRateSortDescending;
+        FamilyRateSortColumn = column;
+    }
+
+    private void ToggleLineRateSort(SmtLineFamilyRateCatalogSortColumn column)
+    {
+        LineRateSortDescending = LineRateSortColumn == column && !LineRateSortDescending;
+        LineRateSortColumn = column;
+    }
+
+    private void ToggleLineAssignmentSort(SmtLineAssignmentCatalogSortColumn column)
+    {
+        LineAssignmentSortDescending = LineAssignmentSortColumn == column && !LineAssignmentSortDescending;
+        LineAssignmentSortColumn = column;
+    }
+
+    private void ToggleOperationCapacitySort(SmtOperationCapacityCatalogSortColumn column)
+    {
+        OperationCapacitySortDescending = OperationCapacitySortColumn == column && !OperationCapacitySortDescending;
+        OperationCapacitySortColumn = column;
+    }
+
+    private void ToggleCapacityTargetSort(SmtCapacityTargetCatalogSortColumn column)
+    {
+        CapacityTargetSortDescending = CapacityTargetSortColumn == column && !CapacityTargetSortDescending;
+        CapacityTargetSortColumn = column;
+    }
+
+    private void ToggleAuditSort(SmtAuditLogSortColumn column)
+    {
+        AuditSortDescending = AuditSortColumn == column && !AuditSortDescending;
+        AuditSortColumn = column;
+    }
+
+    private string FamilySortIndicator(SmtFamilyCatalogSortColumn column) =>
+        FamilySortColumn == column ? FamilySortDirection() : string.Empty;
+
+    private string FamilyRateSortIndicator(SmtFamilyRateCatalogSortColumn column) =>
+        FamilyRateSortColumn == column ? FamilyRateSortDirection() : string.Empty;
+
+    private string LineRateSortIndicator(SmtLineFamilyRateCatalogSortColumn column) =>
+        LineRateSortColumn == column ? LineRateSortDirection() : string.Empty;
+
+    private string LineAssignmentSortIndicator(SmtLineAssignmentCatalogSortColumn column) =>
+        LineAssignmentSortColumn == column ? LineAssignmentSortDirection() : string.Empty;
+
+    private string OperationCapacitySortIndicator(SmtOperationCapacityCatalogSortColumn column) =>
+        OperationCapacitySortColumn == column ? OperationCapacitySortDirection() : string.Empty;
+
+    private string CapacityTargetSortIndicator(SmtCapacityTargetCatalogSortColumn column) =>
+        CapacityTargetSortColumn == column ? CapacityTargetSortDirection() : string.Empty;
+
+    private string AuditSortIndicator(SmtAuditLogSortColumn column) =>
+        AuditSortColumn == column ? AuditSortDirection() : string.Empty;
+
+    private string FamilySortDirection() => FamilySortDescending ? "v" : "^";
+    private string FamilyRateSortDirection() => FamilyRateSortDescending ? "v" : "^";
+    private string LineRateSortDirection() => LineRateSortDescending ? "v" : "^";
+    private string LineAssignmentSortDirection() => LineAssignmentSortDescending ? "v" : "^";
+    private string OperationCapacitySortDirection() => OperationCapacitySortDescending ? "v" : "^";
+    private string CapacityTargetSortDirection() => CapacityTargetSortDescending ? "v" : "^";
+    private string AuditSortDirection() => AuditSortDescending ? "v" : "^";
+}

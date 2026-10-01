@@ -1,0 +1,2 @@
+PartNumber,ProductFamily,OperationCode,StandardTimeSeconds,YieldFactor,UtilizationFactor,EfficiencyFactor,MaxCapacityUnits,FixedHeadcount
+,Longball,ASSY,73.8684,1,1,1,,

@@ -1,0 +1,930 @@
+@page "/catalogos"
+@rendermode InteractiveServer
+@inject CatalogAdministrationService CatalogService
+
+<PageTitle>Catalogos</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">Administracion</p>
+            <h1>Catalogos</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Registros</span>
+            <strong>@TotalRecords.ToString("N0")</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @StatusClass" role="alert">
+            @StatusMessage
+        </div>
+    }
+
+    @if (IsLoading)
+    {
+        <div class="panel">Cargando catalogos...</div>
+    }
+    else if (Snapshot is null)
+    {
+        <div class="alert alert-danger">No pude cargar los catalogos.</div>
+    }
+    else
+    {
+        <div class="catalog-tabs">
+            @foreach (var tab in Tabs)
+            {
+                <button class="@GetTabClass(tab.Key)" type="button" @onclick="() => ActiveTab = tab.Key">
+                    @tab.Label
+                </button>
+            }
+        </div>
+
+        @switch (ActiveTab)
+        {
+            case "machines":
+                @MachineSection()
+                break;
+            case "parts":
+                @PartSection()
+                break;
+            case "subfamilies":
+                @SubFamilySection()
+                break;
+            case "racks":
+                @RackTypeSection()
+                break;
+            case "accessories":
+                @AccessorySection()
+                break;
+            case "routes":
+                @RouteSection()
+                break;
+            case "rack-configurations":
+                @RackConfigurationSection()
+                break;
+            case "crossrefs":
+                @CrossReferenceSection()
+                break;
+            case "test-times":
+                @TestTimeSection()
+                break;
+            case "resources":
+                @ResourceTypeSection()
+                break;
+        }
+    }
+</section>
+
+@code {
+    private static readonly (string Key, string Label)[] Tabs =
+    [
+        ("machines", "Maquinas"),
+        ("parts", "Numeros de parte"),
+        ("subfamilies", "Subfamilias"),
+        ("racks", "Racks"),
+        ("accessories", "Accesorios"),
+        ("routes", "Rutas"),
+        ("rack-configurations", "Config. racks"),
+        ("crossrefs", "Crossrefs"),
+        ("test-times", "Tiempos test"),
+        ("resources", "Recursos")
+    ];
+
+    private bool IsLoading { get; set; } = true;
+    private string ActiveTab { get; set; } = "machines";
+    private CatalogSnapshot? Snapshot { get; set; }
+    private string? StatusMessage { get; set; }
+    private string StatusClass { get; set; } = "alert-success";
+
+    private MachineCatalogItem MachineForm { get; set; } = NewMachine();
+    private PartNumberCatalogItem PartForm { get; set; } = NewPart();
+    private SubFamilyCatalogItem SubFamilyForm { get; set; } = NewSubFamily();
+    private RackTypeCatalogItem RackTypeForm { get; set; } = NewRackType();
+    private RackAccessoryCatalogItem AccessoryForm { get; set; } = NewAccessory();
+    private ProcessRouteCatalogItem RouteForm { get; set; } = NewRoute();
+    private RackConfigurationCatalogItem RackConfigurationForm { get; set; } = NewRackConfiguration();
+    private PartCrossReferenceCatalogItem CrossReferenceForm { get; set; } = NewCrossReference();
+    private TestTimeDefinitionCatalogItem TestTimeForm { get; set; } = NewTestTime();
+    private ResourceTypeCatalogItem ResourceTypeForm { get; set; } = NewResourceType();
+
+    private int TotalRecords => Snapshot is null
+        ? 0
+        : Snapshot.Machines.Count +
+          Snapshot.PartNumbers.Count +
+          Snapshot.SubFamilies.Count +
+          Snapshot.RackTypes.Count +
+          Snapshot.RackAccessories.Count +
+          Snapshot.ProcessRoutes.Count +
+          Snapshot.RackConfigurations.Count +
+          Snapshot.PartCrossReferences.Count +
+          Snapshot.TestTimeDefinitions.Count +
+          Snapshot.ResourceTypes.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadSnapshotAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No pude cargar los catalogos. Verifica que los scripts 003 y 004 esten aplicados en SQL Server: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadSnapshotAsync()
+    {
+        Snapshot = await CatalogService.GetSnapshotAsync();
+
+        if (RouteForm.PartNumberId == 0 && Snapshot.PartNumbers.Count > 0)
+        {
+            RouteForm.PartNumberId = Snapshot.PartNumbers[0].PartNumberId;
+        }
+
+        if (RouteForm.MachineId == 0 && Snapshot.Machines.Count > 0)
+        {
+            RouteForm.MachineId = Snapshot.Machines[0].MachineId;
+        }
+
+        if (RackConfigurationForm.PartNumberId == 0 && Snapshot.PartNumbers.Count > 0)
+        {
+            RackConfigurationForm.PartNumberId = Snapshot.PartNumbers[0].PartNumberId;
+        }
+
+        if (RackConfigurationForm.MachineId == 0 && Snapshot.Machines.Count > 0)
+        {
+            RackConfigurationForm.MachineId = Snapshot.Machines[0].MachineId;
+        }
+
+        if (RackConfigurationForm.RackTypeId == 0 && Snapshot.RackTypes.Count > 0)
+        {
+            RackConfigurationForm.RackTypeId = Snapshot.RackTypes[0].RackTypeId;
+        }
+
+        if (CrossReferenceForm.PartNumberId == 0 && Snapshot.PartNumbers.Count > 0)
+        {
+            CrossReferenceForm.PartNumberId = Snapshot.PartNumbers[0].PartNumberId;
+        }
+
+        if (TestTimeForm.PartNumberId == 0 && Snapshot.PartNumbers.Count > 0)
+        {
+            TestTimeForm.PartNumberId = Snapshot.PartNumbers[0].PartNumberId;
+        }
+
+        if (TestTimeForm.OperationId == 0 && Snapshot.Operations.Count > 0)
+        {
+            TestTimeForm.OperationId = Snapshot.Operations[0].OperationId;
+        }
+    }
+
+    private RenderFragment MachineSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Maquinas y lineas</h2>
+            <span>@Snapshot!.Machines.Count registros</span>
+        </div>
+        <EditForm Model="MachineForm" OnValidSubmit="SaveMachineAsync">
+            <div class="catalog-form">
+                <label><span>Codigo</span><InputText class="form-control" @bind-Value="MachineForm.MachineCode" /></label>
+                <label><span>Nombre</span><InputText class="form-control" @bind-Value="MachineForm.MachineName" /></label>
+                <label><span>Tipo</span><InputText class="form-control" @bind-Value="MachineForm.MachineType" /></label>
+                <label><span>Factor utilizacion</span><DecimalInput Value="MachineForm.DefaultUtilizationFactor" ValueChanged="value => MachineForm.DefaultUtilizationFactor = value ?? 0m" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="MachineForm.IsActive" /> Activa</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetMachine">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Codigo</th><th>Nombre</th><th>Tipo</th><th>Factor</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.Machines)
+                    {
+                        <tr>
+                            <td>@item.MachineCode</td>
+                            <td>@item.MachineName</td>
+                            <td>@item.MachineType</td>
+                            <td>@DecimalRounding.FormatUp(item.DefaultUtilizationFactor)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditMachine(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment PartSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Numeros de parte SMT</h2>
+            <span>@Snapshot!.PartNumbers.Count registros</span>
+        </div>
+        @if (ActiveSmtFamilies.Count == 0)
+        {
+            <div class="alert alert-warning">Primero agrega una familia SMT en Administracion SMT.</div>
+        }
+        <EditForm Model="PartForm" OnValidSubmit="SavePartAsync">
+            <div class="catalog-form">
+                <label><span>Num parte</span><InputText class="form-control" @bind-Value="PartForm.PartNumber" /></label>
+                <label><span>Descripcion</span><InputText class="form-control" @bind-Value="PartForm.Description" /></label>
+                <label><span>BU</span><InputText class="form-control" @bind-Value="PartForm.BusinessUnit" /></label>
+                <label>
+                    <span>Familia</span>
+                    <InputSelect class="form-control" @bind-Value="PartForm.ProductFamily">
+                        <option value="">Selecciona familia</option>
+                        @foreach (var family in ActiveSmtFamilies)
+                        {
+                            <option value="@family.ProductFamily">@family.ProductFamily</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Subfamilia</span>
+                    <InputSelect class="form-control" @bind-Value="PartForm.SubFamily">
+                        <option value="">Selecciona subfamilia</option>
+                        @foreach (var subFamily in ActiveSubFamiliesForPart)
+                        {
+                            <option value="@subFamily.SubFamilyName">@subFamily.SubFamilyName</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Yield default</span><DecimalInput Value="PartForm.DefaultYield" ValueChanged="value => PartForm.DefaultYield = value ?? 0m" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="PartForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetPart">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Num parte</th><th>Descripcion</th><th>BU</th><th>Familia</th><th>Subfamilia</th><th>Yield</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.PartNumbers)
+                    {
+                        <tr>
+                            <td>@item.PartNumber</td>
+                            <td>@item.Description</td>
+                            <td>@item.BusinessUnit</td>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.SubFamily</td>
+                            <td>@DecimalRounding.FormatUp(item.DefaultYield)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditPart(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment SubFamilySection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Subfamilias SMT</h2>
+            <span>@Snapshot!.SubFamilies.Count registros</span>
+        </div>
+        @if (ActiveSmtFamilies.Count == 0)
+        {
+            <div class="alert alert-warning">Primero agrega una familia SMT en Administracion SMT.</div>
+        }
+        <EditForm Model="SubFamilyForm" OnValidSubmit="SaveSubFamilyAsync">
+            <div class="catalog-form">
+                <label>
+                    <span>Familia</span>
+                    <InputSelect class="form-control" @bind-Value="SubFamilyForm.ProductFamily">
+                        <option value="">Selecciona familia</option>
+                        @foreach (var family in ActiveSmtFamilies)
+                        {
+                            <option value="@family.ProductFamily">@family.ProductFamily</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Subfamilia</span><InputText class="form-control" @bind-Value="SubFamilyForm.SubFamilyName" /></label>
+                <label><span>Notas</span><InputText class="form-control" @bind-Value="SubFamilyForm.Notes" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="SubFamilyForm.IsActive" /> Activa</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetSubFamily">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Familia</th><th>Subfamilia</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.SubFamilies)
+                    {
+                        <tr>
+                            <td>@item.ProductFamily</td>
+                            <td>@item.SubFamilyName</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td>@item.Notes</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditSubFamily(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment RackTypeSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Racks y carros</h2>
+            <span>@Snapshot!.RackTypes.Count registros</span>
+        </div>
+        <EditForm Model="RackTypeForm" OnValidSubmit="SaveRackTypeAsync">
+            <div class="catalog-form">
+                <label><span>Codigo</span><InputText class="form-control" @bind-Value="RackTypeForm.RackCode" /></label>
+                <label><span>Nombre</span><InputText class="form-control" @bind-Value="RackTypeForm.RackName" /></label>
+                <label><span>Capacidad base</span><DecimalInput Value="RackTypeForm.BaseUnitsPerRack" ValueChanged="value => RackTypeForm.BaseUnitsPerRack = value ?? 0m" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="RackTypeForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetRackType">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Codigo</th><th>Nombre</th><th>Capacidad</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.RackTypes)
+                    {
+                        <tr>
+                            <td>@item.RackCode</td>
+                            <td>@item.RackName</td>
+                            <td>@DecimalRounding.FormatUp(item.BaseUnitsPerRack)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditRackType(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment AccessorySection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Accesorios de racks</h2>
+            <span>@Snapshot!.RackAccessories.Count registros</span>
+        </div>
+        <EditForm Model="AccessoryForm" OnValidSubmit="SaveAccessoryAsync">
+            <div class="catalog-form">
+                <label><span>Codigo</span><InputText class="form-control" @bind-Value="AccessoryForm.AccessoryCode" /></label>
+                <label><span>Nombre</span><InputText class="form-control" @bind-Value="AccessoryForm.AccessoryName" /></label>
+                <label><span>Capacidad adicional</span><DecimalInput Value="AccessoryForm.AdditionalUnitsPerRack" ValueChanged="value => AccessoryForm.AdditionalUnitsPerRack = value ?? 0m" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="AccessoryForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetAccessory">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Codigo</th><th>Nombre</th><th>Adicional</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.RackAccessories)
+                    {
+                        <tr>
+                            <td>@item.AccessoryCode</td>
+                            <td>@item.AccessoryName</td>
+                            <td>@DecimalRounding.FormatUp(item.AdditionalUnitsPerRack)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditAccessory(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment RouteSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Rutas de proceso</h2>
+            <span>@Snapshot!.ProcessRoutes.Count registros</span>
+        </div>
+        <EditForm Model="RouteForm" OnValidSubmit="SaveRouteAsync">
+            <div class="catalog-form">
+                <label>
+                    <span>Producto</span>
+                    <InputSelect class="form-control" @bind-Value="RouteForm.PartNumberId">
+                        @foreach (var item in Snapshot!.PartNumbers.Where(item => item.IsActive))
+                        {
+                            <option value="@item.PartNumberId">@item.PartNumber - @item.Description</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Maquina</span>
+                    <InputSelect class="form-control" @bind-Value="RouteForm.MachineId">
+                        @foreach (var item in Snapshot!.Machines.Where(item => item.IsActive))
+                        {
+                            <option value="@item.MachineId">@item.MachineName</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Operacion</span><InputText class="form-control" @bind-Value="RouteForm.OperationName" /></label>
+                <label><span>Secuencia</span><InputNumber class="form-control" @bind-Value="RouteForm.SequenceNumber" /></label>
+                <label><span>Tiempo estandar seg.</span><DecimalInput Value="RouteForm.StandardTimeSeconds" ValueChanged="value => RouteForm.StandardTimeSeconds = value ?? 0m" /></label>
+                <label><span>Factor default opcional</span><DecimalInput Value="RouteForm.DefaultUtilizationFactor" ValueChanged="value => RouteForm.DefaultUtilizationFactor = value" AllowNull="true" /></label>
+                <label><span>Yield default opcional</span><DecimalInput Value="RouteForm.DefaultYield" ValueChanged="value => RouteForm.DefaultYield = value" AllowNull="true" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="RouteForm.IsCapacityConstrained" /> Restringe capacidad</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetRoute">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Producto</th><th>Maquina</th><th>Operacion</th><th>Sec.</th><th>Std sec.</th><th>Factor</th><th>Yield</th><th>Capacidad</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.ProcessRoutes)
+                    {
+                        <tr>
+                            <td>@item.PartNumber</td>
+                            <td>@item.MachineName</td>
+                            <td>@item.OperationName</td>
+                            <td>@item.SequenceNumber</td>
+                            <td>@DecimalRounding.FormatUp(item.StandardTimeSeconds)</td>
+                            <td>@FormatOptionalDecimal(item.DefaultUtilizationFactor)</td>
+                            <td>@FormatOptionalDecimal(item.DefaultYield)</td>
+                            <td>@(item.IsCapacityConstrained ? "Si" : "No")</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditRoute(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment RackConfigurationSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Configuraciones rack-producto-maquina</h2>
+            <span>@Snapshot!.RackConfigurations.Count registros</span>
+        </div>
+        <EditForm Model="RackConfigurationForm" OnValidSubmit="SaveRackConfigurationAsync">
+            <div class="catalog-form">
+                <label>
+                    <span>Rack/carro</span>
+                    <InputSelect class="form-control" @bind-Value="RackConfigurationForm.RackTypeId">
+                        @foreach (var item in Snapshot!.RackTypes.Where(item => item.IsActive))
+                        {
+                            <option value="@item.RackTypeId">@item.RackName</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Accesorio</span>
+                    <InputSelect class="form-control" @bind-Value="RackConfigurationForm.RackAccessoryId">
+                        <option value="">Sin accesorio</option>
+                        @foreach (var item in Snapshot!.RackAccessories.Where(item => item.IsActive))
+                        {
+                            <option value="@item.RackAccessoryId">@item.AccessoryName</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Producto</span>
+                    <InputSelect class="form-control" @bind-Value="RackConfigurationForm.PartNumberId">
+                        @foreach (var item in Snapshot!.PartNumbers.Where(item => item.IsActive))
+                        {
+                            <option value="@item.PartNumberId">@item.PartNumber - @item.Description</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Maquina</span>
+                    <InputSelect class="form-control" @bind-Value="RackConfigurationForm.MachineId">
+                        @foreach (var item in Snapshot!.Machines.Where(item => item.IsActive))
+                        {
+                            <option value="@item.MachineId">@item.MachineName</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Piezas por rack</span><DecimalInput Value="RackConfigurationForm.UnitsPerRack" ValueChanged="value => RackConfigurationForm.UnitsPerRack = value ?? 0m" /></label>
+                <label><span>Notas</span><InputText class="form-control" @bind-Value="RackConfigurationForm.Notes" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="RackConfigurationForm.IsActive" /> Activa</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetRackConfiguration">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Rack</th><th>Accesorio</th><th>Producto</th><th>Maquina</th><th>Pzas/rack</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.RackConfigurations)
+                    {
+                        <tr>
+                            <td>@item.RackName</td>
+                            <td>@(item.AccessoryName ?? "Sin accesorio")</td>
+                            <td>@item.PartNumber</td>
+                            <td>@item.MachineName</td>
+                            <td>@DecimalRounding.FormatUp(item.UnitsPerRack)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td>@item.Notes</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditRackConfiguration(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment CrossReferenceSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Crossreferences de producto</h2>
+            <span>@Snapshot!.PartCrossReferences.Count registros</span>
+        </div>
+        <EditForm Model="CrossReferenceForm" OnValidSubmit="SaveCrossReferenceAsync">
+            <div class="catalog-form">
+                <label>
+                    <span>Producto</span>
+                    <InputSelect class="form-control" @bind-Value="CrossReferenceForm.PartNumberId">
+                        @foreach (var item in Snapshot!.PartNumbers.Where(item => item.IsActive))
+                        {
+                            <option value="@item.PartNumberId">@item.PartNumber - @item.Description</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Tipo referencia</span><InputText class="form-control" @bind-Value="CrossReferenceForm.ReferenceType" /></label>
+                <label><span>Valor referencia</span><InputText class="form-control" @bind-Value="CrossReferenceForm.ReferenceValue" /></label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetCrossReference">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Producto</th><th>Tipo</th><th>Valor</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.PartCrossReferences)
+                    {
+                        <tr>
+                            <td>@item.PartNumber</td>
+                            <td>@item.ReferenceType</td>
+                            <td>@item.ReferenceValue</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditCrossReference(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment TestTimeSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Tiempos de prueba derivados</h2>
+            <span>@Snapshot!.TestTimeDefinitions.Count registros</span>
+        </div>
+        <EditForm Model="TestTimeForm" OnValidSubmit="SaveTestTimeAsync">
+            <div class="catalog-form">
+                <label>
+                    <span>Producto</span>
+                    <InputSelect class="form-control" @bind-Value="TestTimeForm.PartNumberId">
+                        @foreach (var item in Snapshot!.PartNumbers.Where(item => item.IsActive))
+                        {
+                            <option value="@item.PartNumberId">@item.PartNumber</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Operacion</span>
+                    <InputSelect class="form-control" @bind-Value="TestTimeForm.OperationId">
+                        @foreach (var item in Snapshot!.Operations.Where(item => item.IsActive))
+                        {
+                            <option value="@item.OperationId">@item.OperationCode</option>
+                        }
+                    </InputSelect>
+                </label>
+                <label><span>Test</span><InputText class="form-control" @bind-Value="TestTimeForm.TestName" /></label>
+                <label><span>Test min.</span><DecimalInput Value="TestTimeForm.TestTimeMinutes" ValueChanged="value => TestTimeForm.TestTimeMinutes = value ?? 0m" /></label>
+                <label><span>Handling min.</span><DecimalInput Value="TestTimeForm.HandlingMinutes" ValueChanged="value => TestTimeForm.HandlingMinutes = value ?? 0m" /></label>
+                <label><span>Qty cell</span><DecimalInput Value="TestTimeForm.QuantityCell" ValueChanged="value => TestTimeForm.QuantityCell = value ?? 0m" /></label>
+                <label><span>Qty equipo</span><DecimalInput Value="TestTimeForm.QuantityEquipment" ValueChanged="value => TestTimeForm.QuantityEquipment = value ?? 0m" /></label>
+                <label><span>Std override seg.</span><DecimalInput Value="TestTimeForm.ManualStandardTimeSeconds" ValueChanged="value => TestTimeForm.ManualStandardTimeSeconds = value" AllowNull="true" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="TestTimeForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetTestTime">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Producto</th><th>Operacion</th><th>Test</th><th>Test min.</th><th>Handling</th><th>Qty cell</th><th>Qty eq.</th><th>Std calc.</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.TestTimeDefinitions)
+                    {
+                        <tr>
+                            <td>@item.PartNumber</td>
+                            <td>@item.OperationCode</td>
+                            <td>@item.TestName</td>
+                            <td>@DecimalRounding.FormatUp(item.TestTimeMinutes)</td>
+                            <td>@DecimalRounding.FormatUp(item.HandlingMinutes)</td>
+                            <td>@DecimalRounding.FormatUp(item.QuantityCell)</td>
+                            <td>@DecimalRounding.FormatUp(item.QuantityEquipment)</td>
+                            <td>@DecimalRounding.FormatUp(item.CalculatedStandardTimeSeconds)</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditTestTime(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private RenderFragment ResourceTypeSection() => @<section class="panel catalog-panel">
+        <div class="panel-title">
+            <h2>Recursos fisicos</h2>
+            <span>@Snapshot!.ResourceTypes.Count registros</span>
+        </div>
+        <EditForm Model="ResourceTypeForm" OnValidSubmit="SaveResourceTypeAsync">
+            <div class="catalog-form">
+                <label><span>Codigo</span><InputText class="form-control" @bind-Value="ResourceTypeForm.ResourceCode" /></label>
+                <label><span>Nombre</span><InputText class="form-control" @bind-Value="ResourceTypeForm.ResourceName" /></label>
+                <label><span>Tipo</span><InputText class="form-control" @bind-Value="ResourceTypeForm.ResourceKind" /></label>
+                <label class="check-row"><InputCheckbox @bind-Value="ResourceTypeForm.IsActive" /> Activo</label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                    <button class="btn btn-secondary" type="button" @onclick="ResetResourceType">Nuevo</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="table-wrap">
+            <table class="planner-table catalog-table">
+                <thead><tr><th>Codigo</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in Snapshot.ResourceTypes)
+                    {
+                        <tr>
+                            <td>@item.ResourceCode</td>
+                            <td>@item.ResourceName</td>
+                            <td>@item.ResourceKind</td>
+                            <td>@FormatActive(item.IsActive)</td>
+                            <td><button class="link-button" type="button" @onclick="() => EditResourceType(item)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>;
+
+    private async Task SaveMachineAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveMachineAsync(MachineForm);
+        ResetMachine();
+    }, "Maquina guardada.");
+
+    private async Task SavePartAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SavePartNumberAsync(PartForm);
+        ResetPart();
+    }, "Numero de parte guardado.");
+
+    private async Task SaveSubFamilyAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveSubFamilyAsync(SubFamilyForm);
+        ResetSubFamily();
+    }, "Subfamilia guardada.");
+
+    private async Task SaveRackTypeAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveRackTypeAsync(RackTypeForm);
+        ResetRackType();
+    }, "Rack/carro guardado.");
+
+    private async Task SaveAccessoryAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveRackAccessoryAsync(AccessoryForm);
+        ResetAccessory();
+    }, "Accesorio guardado.");
+
+    private async Task SaveRouteAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveProcessRouteAsync(RouteForm);
+        ResetRoute();
+    }, "Ruta guardada.");
+
+    private async Task SaveRackConfigurationAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveRackConfigurationAsync(RackConfigurationForm);
+        ResetRackConfiguration();
+    }, "Configuracion de rack guardada.");
+
+    private async Task SaveCrossReferenceAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SavePartCrossReferenceAsync(CrossReferenceForm);
+        ResetCrossReference();
+    }, "Crossreference guardado.");
+
+    private async Task SaveTestTimeAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveTestTimeDefinitionAsync(TestTimeForm);
+        ResetTestTime();
+    }, "Tiempo de prueba guardado.");
+
+    private async Task SaveResourceTypeAsync() => await SaveAsync(async () =>
+    {
+        await CatalogService.SaveResourceTypeAsync(ResourceTypeForm);
+        ResetResourceType();
+    }, "Recurso guardado.");
+
+    private async Task SaveAsync(Func<Task> saveAction, string successMessage)
+    {
+        try
+        {
+            await saveAction();
+            await LoadSnapshotAsync();
+            StatusClass = "alert-success";
+            StatusMessage = successMessage;
+        }
+        catch (Exception ex)
+        {
+            StatusClass = "alert-danger";
+            StatusMessage = $"No se pudo guardar: {ex.Message}";
+        }
+    }
+
+    private void EditMachine(MachineCatalogItem item) => MachineForm = new()
+    {
+        MachineId = item.MachineId,
+        MachineCode = item.MachineCode,
+        MachineName = item.MachineName,
+        MachineType = item.MachineType,
+        DefaultUtilizationFactor = item.DefaultUtilizationFactor,
+        IsActive = item.IsActive
+    };
+
+    private void EditPart(PartNumberCatalogItem item) => PartForm = new()
+    {
+        PartNumberId = item.PartNumberId,
+        PartNumber = item.PartNumber,
+        Description = item.Description,
+        BusinessUnit = item.BusinessUnit,
+        ProductFamily = item.ProductFamily,
+        SubFamily = item.SubFamily,
+        DefaultYield = item.DefaultYield,
+        IsActive = item.IsActive
+    };
+
+    private void EditSubFamily(SubFamilyCatalogItem item) => SubFamilyForm = new()
+    {
+        SubFamilyId = item.SubFamilyId,
+        ProductFamily = item.ProductFamily,
+        SubFamilyName = item.SubFamilyName,
+        Notes = item.Notes,
+        IsActive = item.IsActive
+    };
+
+    private void EditRackType(RackTypeCatalogItem item) => RackTypeForm = new()
+    {
+        RackTypeId = item.RackTypeId,
+        RackCode = item.RackCode,
+        RackName = item.RackName,
+        BaseUnitsPerRack = item.BaseUnitsPerRack,
+        IsActive = item.IsActive
+    };
+
+    private void EditAccessory(RackAccessoryCatalogItem item) => AccessoryForm = new()
+    {
+        RackAccessoryId = item.RackAccessoryId,
+        AccessoryCode = item.AccessoryCode,
+        AccessoryName = item.AccessoryName,
+        AdditionalUnitsPerRack = item.AdditionalUnitsPerRack,
+        IsActive = item.IsActive
+    };
+
+    private void EditRoute(ProcessRouteCatalogItem item) => RouteForm = new()
+    {
+        ProcessRouteId = item.ProcessRouteId,
+        PartNumberId = item.PartNumberId,
+        MachineId = item.MachineId,
+        OperationName = item.OperationName,
+        SequenceNumber = item.SequenceNumber,
+        StandardTimeSeconds = item.StandardTimeSeconds,
+        DefaultUtilizationFactor = item.DefaultUtilizationFactor,
+        DefaultYield = item.DefaultYield,
+        IsCapacityConstrained = item.IsCapacityConstrained
+    };
+
+    private void EditRackConfiguration(RackConfigurationCatalogItem item) => RackConfigurationForm = new()
+    {
+        RackConfigurationId = item.RackConfigurationId,
+        RackTypeId = item.RackTypeId,
+        RackAccessoryId = item.RackAccessoryId,
+        PartNumberId = item.PartNumberId,
+        MachineId = item.MachineId,
+        UnitsPerRack = item.UnitsPerRack,
+        Notes = item.Notes,
+        IsActive = item.IsActive
+    };
+
+    private void EditCrossReference(PartCrossReferenceCatalogItem item) => CrossReferenceForm = new()
+    {
+        PartCrossReferenceId = item.PartCrossReferenceId,
+        PartNumberId = item.PartNumberId,
+        ReferenceType = item.ReferenceType,
+        ReferenceValue = item.ReferenceValue
+    };
+
+    private void EditTestTime(TestTimeDefinitionCatalogItem item) => TestTimeForm = new()
+    {
+        TestTimeDefinitionId = item.TestTimeDefinitionId,
+        PartNumberId = item.PartNumberId,
+        OperationId = item.OperationId,
+        TestName = item.TestName,
+        TestTimeMinutes = item.TestTimeMinutes,
+        HandlingMinutes = item.HandlingMinutes,
+        QuantityCell = item.QuantityCell,
+        QuantityEquipment = item.QuantityEquipment,
+        ManualStandardTimeSeconds = item.ManualStandardTimeSeconds,
+        IsActive = item.IsActive
+    };
+
+    private void EditResourceType(ResourceTypeCatalogItem item) => ResourceTypeForm = new()
+    {
+        ResourceTypeId = item.ResourceTypeId,
+        ResourceCode = item.ResourceCode,
+        ResourceName = item.ResourceName,
+        ResourceKind = item.ResourceKind,
+        IsActive = item.IsActive
+    };
+
+    private void ResetMachine() => MachineForm = NewMachine();
+    private void ResetPart() => PartForm = NewPart();
+    private void ResetSubFamily() => SubFamilyForm = NewSubFamily();
+    private void ResetRackType() => RackTypeForm = NewRackType();
+    private void ResetAccessory() => AccessoryForm = NewAccessory();
+    private void ResetRoute() => RouteForm = NewRoute(Snapshot);
+    private void ResetRackConfiguration() => RackConfigurationForm = NewRackConfiguration(Snapshot);
+    private void ResetCrossReference() => CrossReferenceForm = NewCrossReference(Snapshot);
+    private void ResetTestTime() => TestTimeForm = NewTestTime(Snapshot);
+    private void ResetResourceType() => ResourceTypeForm = NewResourceType();
+
+    private static MachineCatalogItem NewMachine() => new() { IsActive = true, DefaultUtilizationFactor = 0.80m };
+    private static PartNumberCatalogItem NewPart() => new() { IsActive = true, DefaultYield = 1m };
+    private static SubFamilyCatalogItem NewSubFamily() => new() { IsActive = true };
+    private static RackTypeCatalogItem NewRackType() => new() { IsActive = true, BaseUnitsPerRack = 1m };
+    private static RackAccessoryCatalogItem NewAccessory() => new() { IsActive = true };
+    private static ProcessRouteCatalogItem NewRoute(CatalogSnapshot? snapshot = null) => new()
+    {
+        PartNumberId = snapshot?.PartNumbers.FirstOrDefault(item => item.IsActive)?.PartNumberId ?? 0,
+        MachineId = snapshot?.Machines.FirstOrDefault(item => item.IsActive)?.MachineId ?? 0,
+        SequenceNumber = 1,
+        StandardTimeSeconds = 1m,
+        IsCapacityConstrained = true
+    };
+    private static RackConfigurationCatalogItem NewRackConfiguration(CatalogSnapshot? snapshot = null) => new()
+    {
+        RackTypeId = snapshot?.RackTypes.FirstOrDefault(item => item.IsActive)?.RackTypeId ?? 0,
+        PartNumberId = snapshot?.PartNumbers.FirstOrDefault(item => item.IsActive)?.PartNumberId ?? 0,
+        MachineId = snapshot?.Machines.FirstOrDefault(item => item.IsActive)?.MachineId ?? 0,
+        UnitsPerRack = 1m,
+        IsActive = true
+    };
+    private static PartCrossReferenceCatalogItem NewCrossReference(CatalogSnapshot? snapshot = null) => new()
+    {
+        PartNumberId = snapshot?.PartNumbers.FirstOrDefault(item => item.IsActive)?.PartNumberId ?? 0,
+        ReferenceType = "73_LEVEL"
+    };
+    private static TestTimeDefinitionCatalogItem NewTestTime(CatalogSnapshot? snapshot = null) => new()
+    {
+        PartNumberId = snapshot?.PartNumbers.FirstOrDefault(item => item.IsActive)?.PartNumberId ?? 0,
+        OperationId = snapshot?.Operations.FirstOrDefault(item => item.IsActive)?.OperationId ?? 0,
+        TestName = "TEST",
+        QuantityCell = 1m,
+        QuantityEquipment = 1m,
+        IsActive = true
+    };
+    private static ResourceTypeCatalogItem NewResourceType() => new() { ResourceKind = "Rack", IsActive = true };
+
+    private string GetTabClass(string key) => key == ActiveTab ? "catalog-tab is-active" : "catalog-tab";
+    private IReadOnlyList<SmtFamilyLookupCatalogItem> ActiveSmtFamilies =>
+        Snapshot?.SmtFamilies.Where(item => item.IsActive).ToList() ?? [];
+
+    private IReadOnlyList<SubFamilyCatalogItem> ActiveSubFamiliesForPart =>
+        string.IsNullOrWhiteSpace(PartForm.ProductFamily) || Snapshot is null
+            ? []
+            : Snapshot.SubFamilies
+                .Where(item => item.IsActive &&
+                    string.Equals(item.ProductFamily, PartForm.ProductFamily, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(item => item.SubFamilyName)
+                .ToList();
+
+    private static string FormatActive(bool isActive) => isActive ? "Activo" : "Inactivo";
+    private static string FormatOptionalDecimal(decimal? value) => DecimalRounding.FormatOptionalUp(value);
+}

@@ -1,0 +1,279 @@
+@page "/"
+@rendermode InteractiveServer
+@inject SmtSummaryService SummaryService
+
+<PageTitle>Summary SMT</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">SUMMARY</p>
+            <h1>Summary SMT</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Escenario</span>
+            <strong>@ScenarioName</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <div class="alert alert-danger" role="alert">@LoadError</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="panel">Cargando Summary SMT...</div>
+    }
+    else if (Summary is null || Summary.Months.Count == 0)
+    {
+        <div class="panel">No hay datos SMT cargados para generar el Summary.</div>
+    }
+    else
+    {
+        <div class="summary-grid operation-summary-grid">
+            <div class="metric-card">
+                <span>MPS total</span>
+                <strong>@FormatUnits(Summary.BuildProjectionRows.Sum(row => row.TotalMps))</strong>
+                <small>build projection</small>
+            </div>
+            <div class="metric-card">
+                <span>Lineas SMT</span>
+                <strong>@Summary.CapacityRows.Count.ToString("N0")</strong>
+                <small>con capacidad cargada</small>
+            </div>
+            <div class="metric-card warning">
+                <span>Cuello de botella</span>
+                <strong>@PeakBottleneck.LineCode</strong>
+                <small>@PeakBottleneck.WeekName · @FormatPercent(PeakBottleneck.UtilizationPercent)</small>
+            </div>
+            <div class="metric-card">
+                <span>Capacidad SMT</span>
+                <strong>@FormatUnits(Summary.CapacityRows.Sum(row => row.Months.Values.Sum(cell => cell.CapacityUnits)))</strong>
+                <small>M1 + M2 + M3</small>
+            </div>
+        </div>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Linearity</h2>
+                <span>Distribucion mensual por BU</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table summary-compact-table">
+                    <thead>
+                        <tr>
+                            <th>BU</th>
+                            @foreach (var month in Summary.Months)
+                            {
+                                <th>@month.WeekName</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Summary.LinearityRows)
+                        {
+                            <tr>
+                                <td><strong>@row.BusinessUnit</strong></td>
+                                @foreach (var month in Summary.Months)
+                                {
+                                    <td class="number-cell">@FormatPercent(row.MonthPercents.GetValueOrDefault(month.WeekName))</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="summary-board">
+            <section class="panel">
+                <div class="panel-title">
+                    <h2>BUILD PROJECTION</h2>
+                    <span>MPS por BU</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="planner-table result-table">
+                        <thead>
+                            <tr>
+                                <th>BU</th>
+                                <th>Family</th>
+                                <th>MPS</th>
+                                @foreach (var month in Summary.Months)
+                                {
+                                    <th>@month.WeekName</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Summary.BuildProjectionRows)
+                            {
+                                <tr>
+                                    <td>@row.BusinessUnit</td>
+                                    <td>@row.FamilyLabel</td>
+                                    <td class="number-cell"><strong>@FormatUnits(row.TotalMps)</strong></td>
+                                    @foreach (var month in Summary.Months)
+                                    {
+                                        <td class="number-cell">@FormatUnits(row.MonthlyMps.GetValueOrDefault(month.WeekName))</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">
+                    <h2>SCR Commit</h2>
+                    <span>@(Summary.ScrCommitRows.Count == 0 ? "sin datos importados" : "targets cargados")</span>
+                </div>
+                @if (Summary.ScrCommitRows.Count == 0)
+                {
+                    <div class="alert alert-warning">No hay datos SCR Commit importados para este escenario.</div>
+                }
+                else
+                {
+                    <div class="table-wrap">
+                        <table class="planner-table result-table">
+                            <thead>
+                                <tr>
+                                    <th>BU</th>
+                                    <th>Total</th>
+                                    @foreach (var month in Summary.Months)
+                                    {
+                                        <th>@month.WeekName</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in Summary.ScrCommitRows)
+                                {
+                                    <tr>
+                                        <td>@row.BusinessUnit</td>
+                                        <td class="number-cell"><strong>@FormatUnits(row.TotalCommit)</strong></td>
+                                        @foreach (var month in Summary.Months)
+                                        {
+                                            <td class="number-cell">@FormatUnits(row.MonthlyCommit.GetValueOrDefault(month.WeekName))</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>SMT CAPACITY</h2>
+                <span>Capacidad y utilizacion por linea</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table result-table">
+                    <thead>
+                        <tr>
+                            <th>Linea</th>
+                            @foreach (var month in Summary.Months)
+                            {
+                                <th>
+                                    <span>@(month.MonthName ?? month.WeekName)</span>
+                                    <small>@month.WeekName · @month.WeekCount semanas</small>
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Summary.CapacityRows)
+                        {
+                            <tr>
+                                <td><strong>@row.LineCode</strong></td>
+                                @foreach (var month in Summary.Months)
+                                {
+                                    var cell = row.Months.GetValueOrDefault(month.WeekName);
+                                    <td class="number-cell @GetLoadClass(cell?.UtilizationPercent ?? 0m)">
+                                        <strong>@FormatUnits(cell?.CapacityUnits ?? 0m)</strong>
+                                        <small>@FormatPercent(cell?.UtilizationPercent ?? 0m)</small>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Bottle Neck</h2>
+                <span>Mayor utilizacion por mes</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table result-table">
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th>Linea</th>
+                            <th>Utilizacion</th>
+                            <th>Capacidad</th>
+                            <th>Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Summary.BottleneckRows)
+                        {
+                            <tr class="@GetLoadClass(row.UtilizationPercent)">
+                                <td>@row.WeekName</td>
+                                <td>@row.LineCode</td>
+                                <td class="number-cell">@FormatPercent(row.UtilizationPercent)</td>
+                                <td class="number-cell">@FormatUnits(row.CapacityUnits)</td>
+                                <td class="number-cell">@FormatUnits(row.DeltaCapacityUnits)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private string ScenarioName { get; set; } = "Base FMD SMT";
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
+    private SmtSummaryReport? Summary { get; set; }
+
+    private SmtSummaryBottleneckRow PeakBottleneck =>
+        Summary?.BottleneckRows
+            .OrderByDescending(row => row.UtilizationPercent)
+            .FirstOrDefault() ??
+        new SmtSummaryBottleneckRow("-", "-", "-", 0m, 0m, 0m);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Summary = await SummaryService.GetSummaryAsync(ScenarioName);
+            ScenarioName = Summary.ScenarioName;
+        }
+        catch (Exception ex)
+        {
+            LoadError = $"No pude cargar el Summary SMT. Verifica que exista importacion FMD SMT: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string GetLoadClass(decimal loadPercent) =>
+        loadPercent > 99.4m ? "is-overloaded" :
+        loadPercent >= 85.5m ? "is-tight" :
+        string.Empty;
+
+    private static string FormatUnits(decimal value) =>
+        DecimalRounding.FormatUp(value, decimals: 0);
+
+    private static string FormatPercent(decimal value) =>
+        DecimalRounding.FormatNatural(value, "%", decimals: 0);
+}

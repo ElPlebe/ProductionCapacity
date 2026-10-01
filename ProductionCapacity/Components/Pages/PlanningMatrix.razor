@@ -1,0 +1,211 @@
+@page "/matriz"
+@rendermode InteractiveServer
+@inject PlanningMatrixService MatrixService
+
+<PageTitle>Matriz Excel</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">Paridad Excel</p>
+            <h1>Matriz de planeacion por operacion</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Escenario</span>
+            <strong>@ScenarioName</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <div class="alert alert-danger" role="alert">
+            @LoadError
+        </div>
+    }
+    else if (IsLoading)
+    {
+        <div class="panel">
+            Cargando matriz de planeacion...
+        </div>
+    }
+    else if (Matrix is null || Matrix.Operations.Count == 0)
+    {
+        <div class="panel">
+            No hay operaciones configuradas para este escenario. Ejecuta el script 003 y carga rates por operacion para ver la matriz.
+        </div>
+    }
+    else
+    {
+        <div class="summary-grid operation-summary-grid">
+            @foreach (var operation in Matrix.Operations)
+            {
+                var summary = Matrix.OperationSummaries[operation.OperationCode];
+                <div class="metric-card @GetSummaryClass(summary.LoadPercent)">
+                    <span>@operation.OperationCode</span>
+                    <strong>@DecimalRounding.FormatUp(summary.LoadPercent, "%")</strong>
+                    <small>@DecimalRounding.FormatUp(summary.LoadHours, " h") / @DecimalRounding.FormatUp(summary.AvailableHours, " h")</small>
+                </div>
+            }
+        </div>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>@Matrix.WeekName</h2>
+                <span>@Matrix.Rows.Count familias | @Matrix.Rows.Sum(row => row.ChildRows.Count) numeros de parte | @Matrix.Operations.Count operaciones</span>
+            </div>
+
+            <div class="table-wrap">
+                <table class="planner-table matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Familia</th>
+                            <th>Detalle</th>
+                            <th>Volumen</th>
+                            @foreach (var operation in Matrix.Operations)
+                            {
+                                <th>@operation.OperationCode</th>
+                            }
+                        </tr>
+                        <tr>
+                            <th></th>
+                            <th></th>
+                            <th>Tiempo restante</th>
+                            @foreach (var operation in Matrix.Operations)
+                            {
+                                var summary = Matrix.OperationSummaries[operation.OperationCode];
+                                <th class="@GetHeaderClass(summary.RemainingHours)">
+                                    @DecimalRounding.FormatUp(summary.RemainingHours, " h")
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Matrix.Rows)
+                        {
+                            <tr>
+                                <td>
+                                    @if (row.ChildRows.Count > 0)
+                                    {
+                                        <button class="btn btn-sm btn-secondary" type="button" @onclick="() => ToggleFamily(row.ProductFamily)">
+                                            @(ExpandedFamilies.Contains(row.ProductFamily) ? "-" : "+")
+                                        </button>
+                                    }
+                                    <strong>@row.ProductFamily</strong>
+                                </td>
+                                <td>@row.PartDescription</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(row.DemandUnits)</td>
+                                @foreach (var operation in Matrix.Operations)
+                                {
+                                    <td class="number-cell">
+                                        @if (row.Cells.TryGetValue(operation.OperationCode, out var cell))
+                                        {
+                                            @DecimalRounding.FormatUp(cell.LoadHours)
+                                            @if (cell.IsConstrained)
+                                            {
+                                                <div class="muted-cell">
+                                                    Cap. @DecimalRounding.FormatUp(cell.CapacityUnits)
+                                                    @if (cell.MissingResourceCount > 0)
+                                                    {
+                                                        <span> | faltan @cell.MissingResourceCount @cell.ConstraintKind</span>
+                                                    }
+                                                    else if (!string.IsNullOrWhiteSpace(cell.ConstraintName))
+                                                    {
+                                                        <span> | @cell.ConstraintName</span>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="muted-cell">-</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                            @if (ExpandedFamilies.Contains(row.ProductFamily))
+                            {
+                                @foreach (var child in row.ChildRows)
+                                {
+                                    <tr>
+                                        <td class="muted-cell">@child.PartNumber</td>
+                                        <td>@child.PartDescription</td>
+                                        <td class="number-cell">@DecimalRounding.FormatUp(child.DemandUnits)</td>
+                                        @foreach (var operation in Matrix.Operations)
+                                        {
+                                            <td class="number-cell">
+                                                @if (child.Cells.TryGetValue(operation.OperationCode, out var cell))
+                                                {
+                                                    @DecimalRounding.FormatUp(cell.LoadHours)
+                                                    @if (cell.IsConstrained)
+                                                    {
+                                                        <div class="muted-cell">
+                                                            Cap. @DecimalRounding.FormatUp(cell.CapacityUnits)
+                                                            @if (cell.MissingResourceCount > 0)
+                                                            {
+                                                                <span> | faltan @cell.MissingResourceCount @cell.ConstraintKind</span>
+                                                            }
+                                                            else if (!string.IsNullOrWhiteSpace(cell.ConstraintName))
+                                                            {
+                                                                <span> | @cell.ConstraintName</span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted-cell">-</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private string ScenarioName { get; set; } = "Base semanal";
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
+    private ProductionCapacity.Data.PlanningMatrix? Matrix { get; set; }
+    private HashSet<string> ExpandedFamilies { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Matrix = await MatrixService.GetMatrixAsync(ScenarioName);
+        }
+        catch (Exception ex)
+        {
+            LoadError = $"No pude cargar la matriz. Verifica que el script 003 este aplicado y que existan operaciones/rates: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string GetSummaryClass(decimal loadPercent) =>
+        loadPercent >= 100m ? "danger" :
+        loadPercent >= 85m ? "warning" :
+        string.Empty;
+
+    private static string GetHeaderClass(decimal remainingHours) =>
+        remainingHours < 0m ? "matrix-overloaded" :
+        remainingHours < 10m ? "matrix-tight" :
+        string.Empty;
+
+    private void ToggleFamily(string family)
+    {
+        if (!ExpandedFamilies.Add(family))
+        {
+            ExpandedFamilies.Remove(family);
+        }
+    }
+}

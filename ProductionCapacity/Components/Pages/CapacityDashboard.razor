@@ -1,0 +1,181 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@inject PlanningMatrixService MatrixService
+
+<PageTitle>Dashboard de capacidad</PageTitle>
+
+<section class="planner-shell">
+    <div class="planner-header">
+        <div>
+            <p class="eyebrow">Planeador</p>
+            <h1>Dashboard de capacidad</h1>
+        </div>
+        <div class="scenario-pill">
+            <span>Escenario</span>
+            <strong>@ScenarioName</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(LoadError))
+    {
+        <div class="alert alert-danger" role="alert">@LoadError</div>
+    }
+    else if (IsLoading)
+    {
+        <div class="panel">Cargando dashboard...</div>
+    }
+    else if (Matrices.Count == 0)
+    {
+        <div class="panel">No hay datos de matriz para el escenario.</div>
+    }
+    else
+    {
+        <div class="summary-grid">
+            <div class="metric-card danger">
+                <span>Operaciones sobrecargadas</span>
+                <strong>@OverloadedOperations.Count.ToString("N0")</strong>
+                <small>carga mayor a 100%</small>
+            </div>
+            <div class="metric-card warning">
+                <span>Operaciones al limite</span>
+                <strong>@TightOperations.Count.ToString("N0")</strong>
+                <small>carga entre 85% y 100%</small>
+            </div>
+            <div class="metric-card">
+                <span>Semanas</span>
+                <strong>@Matrices.Count.ToString("N0")</strong>
+                <small>horizonte cargado</small>
+            </div>
+            <div class="metric-card">
+                <span>Familias</span>
+                <strong>@Matrices.Sum(matrix => matrix.Rows.Count).ToString("N0")</strong>
+                <small>filas familia-semana</small>
+            </div>
+        </div>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Cuellos de botella por semana</h2>
+                <span>@OperationRows.Count registros</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table result-table">
+                    <thead><tr><th>Semana</th><th>Operacion</th><th>Disponible</th><th>Carga</th><th>Restante</th><th>% carga</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in OperationRows)
+                        {
+                            <tr class="@GetLoadClass(row.LoadPercent)">
+                                <td>@row.WeekName</td>
+                                <td>@row.OperationCode</td>
+                                <td>@DecimalRounding.FormatUp(row.AvailableHours, " h")</td>
+                                <td>@DecimalRounding.FormatUp(row.LoadHours, " h")</td>
+                                <td>@DecimalRounding.FormatUp(row.RemainingHours, " h")</td>
+                                <td>@DecimalRounding.FormatUp(row.LoadPercent, "%")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title">
+                <h2>Drill-down de carga por numero de parte</h2>
+                <span>Top contribuciones</span>
+            </div>
+            <div class="table-wrap">
+                <table class="planner-table">
+                    <thead><tr><th>Semana</th><th>Operacion</th><th>Familia</th><th>Numero de parte</th><th>Descripcion</th><th>Volumen</th><th>Horas carga</th></tr></thead>
+                    <tbody>
+                        @foreach (var item in ProductLoadRows.Take(40))
+                        {
+                            <tr>
+                                <td>@item.WeekName</td>
+                                <td>@item.OperationCode</td>
+                                <td>@item.ProductFamily</td>
+                                <td>@item.PartNumber</td>
+                                <td>@item.PartDescription</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(item.DemandUnits)</td>
+                                <td class="number-cell">@DecimalRounding.FormatUp(item.LoadHours)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private string ScenarioName { get; set; } = "Base semanal";
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
+    private IReadOnlyList<ProductionCapacity.Data.PlanningMatrix> Matrices { get; set; } = [];
+
+    private IReadOnlyList<DashboardOperationRow> OperationRows => Matrices
+        .SelectMany(matrix => matrix.OperationSummaries.Values.Select(summary => new DashboardOperationRow(
+            matrix.WeekName,
+            summary.OperationCode,
+            summary.AvailableHours,
+            summary.LoadHours,
+            summary.RemainingHours,
+            summary.LoadPercent)))
+        .OrderByDescending(row => row.LoadPercent)
+        .ToList();
+
+    private IReadOnlyList<DashboardOperationRow> OverloadedOperations =>
+        OperationRows.Where(row => row.LoadPercent >= 100m).ToList();
+
+    private IReadOnlyList<DashboardOperationRow> TightOperations =>
+        OperationRows.Where(row => row.LoadPercent >= 85m && row.LoadPercent < 100m).ToList();
+
+    private IReadOnlyList<DashboardProductLoadRow> ProductLoadRows => Matrices
+        .SelectMany(matrix => matrix.Rows.SelectMany(row => (row.ChildRows.Count == 0 ? [row] : row.ChildRows).SelectMany(partRow => partRow.Cells.Values.Select(cell => new DashboardProductLoadRow(
+            matrix.WeekName,
+            cell.OperationCode,
+            partRow.ProductFamily,
+            partRow.PartNumber,
+            partRow.PartDescription,
+            partRow.DemandUnits,
+            cell.LoadHours)))))
+        .OrderByDescending(row => row.LoadHours)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Matrices = await MatrixService.GetMatricesAsync(ScenarioName);
+        }
+        catch (Exception ex)
+        {
+            LoadError = $"No pude cargar el dashboard. Verifica scripts 003 y 004: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static string GetLoadClass(decimal loadPercent) =>
+        loadPercent >= 100m ? "is-overloaded" :
+        loadPercent >= 85m ? "is-tight" :
+        string.Empty;
+
+    private sealed record DashboardOperationRow(
+        string WeekName,
+        string OperationCode,
+        decimal AvailableHours,
+        decimal LoadHours,
+        decimal RemainingHours,
+        decimal LoadPercent);
+
+    private sealed record DashboardProductLoadRow(
+        string WeekName,
+        string OperationCode,
+        string ProductFamily,
+        string PartNumber,
+        string PartDescription,
+        decimal DemandUnits,
+        decimal LoadHours);
+}

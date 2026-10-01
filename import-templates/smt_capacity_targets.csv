@@ -1,0 +1,2 @@
+ScenarioName,WeekName,ProductFamily,OperationCode,LineCode,ExpectedAssignedDemandUnits,ExpectedMaxCapacityUnits,ExpectedUtilizationPercent,ExpectedDeltaCapacityUnits,SourceReference,Notes
+Base FMD SMT,M1,AZTECA,SMT,SMT 1,28.250,39.886,70.829,11.636,Capacity SMT!B5:Q5,Ejemplo de target esperado desde Capacity SMT

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ProductionCapacity.Data.Tests/ProductionCapacity.Data.Tests.csproj" />
+  <Project Path="ProductionCapacity.Data/ProductionCapacity.Data.csproj" />
+  <Project Path="ProductionCapacity.Engine.Tests/ProductionCapacity.Engine.Tests.csproj" />
+  <Project Path="ProductionCapacity.Engine/ProductionCapacity.Engine.csproj" />
+  <Project Path="ProductionCapacity/ProductionCapacity.csproj" />
+</Solution>

@@ -1,0 +1,2 @@
+ScenarioName,WeekName,OperationCode,WorkDays,HoursPerShift,ShiftsPerDay,EquipmentQuantity,HolidayDays,OvertimeHours,PlannedDowntimeHours
+Base semanal,WK13,ASSY,5.66,7.5,3,2,0,0,0
